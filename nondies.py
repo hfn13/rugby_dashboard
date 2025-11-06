@@ -526,7 +526,7 @@ for team in teams:
                     # Carries
                     if 'Carries' in opponent_df.columns:
                         total_carries = opponent_df['Carries'].sum()
-                        avg_m = str(round(opponent_df['AVG metres'].apply(distance_avg).mean(), 2)) + ' mean'
+                        avg_m = str(round(opponent_df['AVG metres'].apply(distance_avg).mean(), 2)) + ' metres'
                     else:
                         total_carries = 'No data'
                         avg_m = 'No data'
