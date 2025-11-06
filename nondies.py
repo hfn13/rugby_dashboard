@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 datasets = [
     'Middlesbrough vs Ilkley 20250410.xlsx',
     'Middlesbrough vs York 10112024.xlsx',
-    r"C:\Users\cex\OneDrive\Middlesbrough vs Kendall 20251018.xlsx"
+    "Middlesbrough vs Kendall 20251018.xlsx"
 ]
 home_team = 'Middlesbrough'
 teams = [
