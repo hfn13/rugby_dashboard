@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 datasets = [
     'Middlesbrough vs Ilkley 20250410.xlsx',
     'Middlesbrough vs York 10112024.xlsx',
-    r"C:\Users\cex\OneDrive\Middlesbrough vs Kendall 20251018.xlsx"
+    "Middlesbrough vs Kendall 20251018.xlsx",
+    "Middlesbrough vs Alnwick 08112025.xlsx"
 ]
 home_team = 'Middlesbrough'
 teams = [
@@ -14,7 +15,7 @@ teams = [
         'York',
         'Kendall',
         #'Heath',
-        #'Alnwick',
+        'Alnwick',
         #'Harrogate',
         #'Sandal',
         #'Penrith',
@@ -131,16 +132,16 @@ if selections == 'Home':
         convert22 = []
         convert22_1 = []
         for team in opponent_dataset:
-            if '22 Entries' in team.columns:
-                con22r = (len(team[team['Try'] == 'Yes'])/ team['22 Entries'].sum()) *100
+            if '22 Entries For' in team.columns:
+                con22r = (len(team[team['Try'] == 'Yes'])/ team['22 Entries For'].sum()) *100
                 convert22.append(con22r)
             
             else:
                 pass
         conversionrate22 = str(round(sum(convert22) /len(convert22), 2)) + '%'
         for team in opponent_dataset[:-1]:
-            if '22 Entries' in team.columns:
-                con22r = (len(team[team['Try'] == 'Yes'])/ team['22 Entries'].sum()) *100
+            if '22 Entries For' in team.columns:
+                con22r = (len(team[team['Try'] == 'Yes'])/ team['22 Entries For'].sum()) *100
                 convert22_1.append(con22r)
 
             else:
@@ -248,16 +249,16 @@ if selections == 'Home':
         convert22 = []
         convert22_1 = []
         for team in opponent_dataset:
-            if '22 Entries' in team.columns:
-                con22r = (len(team[team['Try'] == 'Yes'])/ team['22 Entries'].sum()) *100
+            if '22 Entries For' in team.columns:
+                con22r = (len(team[team['Try'] == 'Yes'])/ team['22 Entries For'].sum()) *100
                 convert22.append(con22r)
             
             else:
                 pass
         conversionrate22 = str(round(sum(convert22) /len(convert22), 2)) + '%'
         for team in opponent_dataset[:-1]:
-            if '22 Entries' in team.columns:
-                con22r = (len(team[team['Try'] == 'Yes'])/ team['22 Entries'].sum()) *100
+            if '22 Entries For' in team.columns:
+                con22r = (len(team[team['Try'] == 'Yes'])/ team['22 Entries For'].sum()) *100
                 convert22_1.append(con22r)
 
             else:
@@ -480,9 +481,9 @@ for team in teams:
                     
                     convert22 = []
                     
-                    if '22 Entries' in home_df.columns:
-                        entry22 = home_df['22 Entries'].sum()
-                        con22r = (len(home_df[home_df['Try'] == 'Yes'])/ home_df['22 Entries'].sum()) *100
+                    if '22 Entries For' in home_df.columns:
+                        entry22 = home_df['22 Entries For'].sum()
+                        con22r = (len(home_df[home_df['Try'] == 'Yes'])/ home_df['22 Entries For'].sum()) *100
                         convert22.append(con22r)
                         conversionrate22 = str(round(sum(convert22) /len(convert22), 2)) + '%'
                     else:
@@ -543,9 +544,9 @@ for team in teams:
                     
                     convert22 = []
                     
-                    if '22 Entries' in opponent_df.columns:
-                        entry22 = opponent_df['22 Entries'].sum()
-                        con22r = (len(opponent_df[opponent_df['Try'] == 'Yes'])/ opponent_df['22 Entries'].sum()) *100
+                    if '22 Entries For' in opponent_df.columns:
+                        entry22 = opponent_df['22 Entries For'].sum()
+                        con22r = (len(opponent_df[opponent_df['Try'] == 'Yes'])/ opponent_df['22 Entries For'].sum()) *100
                         convert22.append(con22r)
                         conversionrate22 = str(round(sum(convert22) /len(convert22), 2)) + '%'
                     else:
