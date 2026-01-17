@@ -6,19 +6,7 @@ import plotly.express as px
 import numpy as np
 
 import os
-os.chdir("C:/Users/cex/Desktop/Rugby Streamlit")
 
-
-# datasets = [
-#     #'Middlesbrough vs Ilkley 20250410.xlsx',
-#     r"C:\Users\cex\Desktop\Rugby Streamlit\Middlesbrough vs Ilkley 20250410.xlsx",
-#     #'Middlesbrough vs York 10112024.xlsx',
-#     r"C:\Users\cex\Desktop\Rugby Streamlit\Middlesbrough vs York 10112024.xlsx",
-#     #"Middlesbrough vs Kendall 20251018.xlsx",
-#     r"C:\Users\cex\Desktop\Rugby Streamlit\Middlesbrough vs Kendall 20251018.xlsx",
-#     #"Middlesbrough vs Alnwick 08112025.xlsx",
-#     r"C:\Users\cex\Desktop\Rugby Streamlit\Middlesbrough vs Alnwick 08112025.xlsx"
-# ]
     
 home_team = 'Middlesbrough'
 teams = [
