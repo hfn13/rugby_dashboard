@@ -96,7 +96,12 @@ Each KPI includes:
 - Total value
 - Delta vs previous match
 
-### Opponent Statistics
+### Boro Analyses
+Displays:
+- Machine learning: Use of permutation importance to rank which features are driving performance.
+- Correlation: Find out which features were truly driving performance, that is, leading to scoring and conceding of tries.
+  
+### Opponent Statistics and Analyses
 Same KPIs, but aggregated for all opponents.
 
 ---
