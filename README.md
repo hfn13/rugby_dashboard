@@ -115,7 +115,7 @@ For each opponent:
 - Event-based timeline
 - Tries, penalties, halftime, fulltime
 - Snapshot KPIs at each event moment
-
+- Use of Markov Chains to explain team performance based on carry metre sequence
 ---
 
 ## Visualisations
