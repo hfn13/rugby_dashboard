@@ -13,8 +13,7 @@ from sklearn.inspection import permutation_importance
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.base import clone
 
-import os
-os.chdir("C:/Users/cex/Desktop/Rugby Streamlit")
+
 
 
 # datasets = [
