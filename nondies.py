@@ -5,7 +5,30 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 import numpy as np
 
-    
+from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, Normalizer, StandardScaler, RobustScaler
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline,make_pipeline
+
+from sklearn.inspection import permutation_importance
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.base import clone
+
+import os
+os.chdir("C:/Users/cex/Desktop/Rugby Streamlit")
+
+
+# datasets = [
+#     #'Middlesbrough vs Ilkley 20250410.xlsx',
+#     r"C:\Users\cex\Desktop\Rugby Streamlit\Middlesbrough vs Ilkley 20250410.xlsx",
+#     #'Middlesbrough vs York 10112024.xlsx',
+#     r"C:\Users\cex\Desktop\Rugby Streamlit\Middlesbrough vs York 10112024.xlsx",
+#     #"Middlesbrough vs Kendall 20251018.xlsx",
+#     r"C:\Users\cex\Desktop\Rugby Streamlit\Middlesbrough vs Kendall 20251018.xlsx",
+#     #"Middlesbrough vs Alnwick 08112025.xlsx",
+#     r"C:\Users\cex\Desktop\Rugby Streamlit\Middlesbrough vs Alnwick 08112025.xlsx"
+# ]
+
+# DATASETS
 home_team = 'Middlesbrough'
 teams = [
     #'Harrogate(A)',
@@ -34,7 +57,7 @@ matchdays = {
     # },
     'York' : {
         'away':{
-                 'file' :"Middlesbrough vs York 10112024.xlsx",
+                 'file' :r"C:\Users\cex\Desktop\Rugby Streamlit\Middlesbrough vs York 10112024.xlsx",
                  'date' : '11 October 2025'
                 },
         'home':{
@@ -44,7 +67,7 @@ matchdays = {
              },
     'Kendall' : {
         'home':{
-            'file' : "Middlesbrough vs Kendall 20251018.xlsx",
+            'file' : r"C:\Users\cex\Desktop\Rugby Streamlit\Middlesbrough vs Kendall 20251018.xlsx",
             'date' : '18 October 2025'},
         'away':{
             'file' : None,
@@ -63,7 +86,7 @@ matchdays = {
     # },
     'Alnwick' : {
         'away':{
-            'file' : "Middlesbrough vs Alnwick 08112025.xlsx",
+            'file' : r"C:\Users\cex\Desktop\Rugby Streamlit\Middlesbrough vs Alnwick 08112025.xlsx",
             'date' : '8 November 2025'
         },
         'home':{
@@ -132,62 +155,21 @@ matchdays = {
     #     }
     # },
 }
-home_team = 'Middlesbrough'
 
-home_dataset = []
-opponent_dataset = []
-
-for index,key in matchdays.items():
-    if key['home']['file'] is not None:
-        df_home_h = pd.read_excel(key['home']['file'], sheet_name=index)
-        home_dataset.append(df_home_h.fillna(0))
-    if key['away']['file'] is not None:
-        df_home_a = pd.read_excel(key['away']['file'], sheet_name=index)
-        home_dataset.append(df_home_a.fillna(0))
-
-
-for index,key in matchdays.items():
-    if key['home']['file'] is not None:
-        df_away_h = pd.read_excel(key['home']['file'], sheet_name=index)
-        opponent_dataset.append(df_away_h.fillna(0))
-    if key['away']['file'] is not None:
-        df_away_a = pd.read_excel(key['away']['file'], sheet_name=index)
-        opponent_dataset.append(df_away_a.fillna(0))
-
-
-# Safe concatenation
-if opponent_dataset:
-    opponent_data = pd.concat(opponent_dataset, ignore_index=True)
-    opponent_data1 = pd.concat(opponent_dataset[:-1], ignore_index=True)
-else:
-    st.warning("No opponent sheets found across datasets.")
-    opponent_data = pd.DataFrame()
-
-if home_dataset:
-    home_data = pd.concat(home_dataset, ignore_index=True)
-else:
-    st.warning("No home sheets found across datasets.")
-    home_data = pd.DataFrame()
-
-# Code Converter functions
+# DICTIONARIES
 # To get numerical representation of categorical columns in the dataset
 # Key { 0: 'event_values'
 #        : 'Key for the numeric values of events.'
 #       1: 'ranges'
 #        : 'Key for the letter symbols measuring distance',
-#       2: 'Distance_avg',
-#        ; 'Function to derive the average distance in a given sequence'
-#       3: 'count_line_breaks',
-#        ; 'Function to count number of line breaks in a sequence. Has to be more than 5 meyters to be considered a line break'
-#       4: 'get_values'
-#        ; 'Function to derive the numeric values of the letter symbols. Useful for plotting graphs.',
-#       5: 'get_time'
-#        ; 'Function to derive the time in the 'minute:second' format',}
+
 event_values = {
     'T' : 5,
+    'TC': 7,
     'P' : 3,
-    'C' : -5,
-    'Q' : -3,
+    'CT' : -5,
+    'CTC' : -7,
+    'CP' : -3,
     'N' : 0
 }
 
@@ -256,6 +238,15 @@ ranges_avg = {
     'X' : 0
     } 
 
+# CODE CONVERTER FUNCTIONS
+#       2: 'Distance_avg',
+#        ; 'Function to derive the average distance in a given sequence'
+#       3: 'count_line_breaks',
+#        ; 'Function to count number of line breaks in a sequence. Has to be more than 5 meyters to be considered a line break'
+#       4: 'get_values'
+#        ; 'Function to derive the numeric values of the letter symbols. Useful for plotting graphs.',
+#       5: 'get_time'
+#        ; 'Function to derive the time in the 'minute:second' format',}
 def distance_avg(x):
     
     if not isinstance(x,str):
@@ -471,6 +462,145 @@ def numeric_sequence(x):
     numeric = [int(ranges[c.upper()]['code']) for c in x if c.upper() in ranges]
     return numeric
 
+# LOAD DATASETS
+
+home_team = 'Middlesbrough'
+
+home_dataset = []
+opponent_dataset = []
+
+for index,key in matchdays.items():
+    if key['home']['file'] is not None:
+        df_home_h = pd.read_excel(key['home']['file'], sheet_name=index)
+        home_dataset.append(df_home_h.fillna(0))
+    if key['away']['file'] is not None:
+        df_home_a = pd.read_excel(key['away']['file'], sheet_name=index)
+        home_dataset.append(df_home_a.fillna(0))
+
+
+for index,key in matchdays.items():
+    if key['home']['file'] is not None:
+        df_away_h = pd.read_excel(key['home']['file'], sheet_name=index)
+        opponent_dataset.append(df_away_h.fillna(0))
+    if key['away']['file'] is not None:
+        df_away_a = pd.read_excel(key['away']['file'], sheet_name=index)
+        opponent_dataset.append(df_away_a.fillna(0))
+
+
+# Safe concatenation
+if opponent_dataset:
+    opponent_data = pd.concat(opponent_dataset, ignore_index=True)
+    opponent_data1 = pd.concat(opponent_dataset[:-1], ignore_index=True)
+else:
+    st.warning("No opponent sheets found across datasets.")
+    opponent_data = pd.DataFrame()
+
+if home_dataset:
+    home_data = pd.concat(home_dataset, ignore_index=True)
+else:
+    st.warning("No home sheets found across datasets.")
+    home_data = pd.DataFrame()
+
+######
+## MACHINE LEARNING DATASETS
+######
+
+home_data['Event_Impact'] = home_data['Event'].apply(lambda x: event_values.get(x))
+home_data['Score_Before'] = home_data['Event_Impact'].cumsum().shift(1).fillna(0)
+opponent_data['Event_Impact'] = opponent_data['Event'].apply(lambda x: event_values.get(x))
+opponent_data['Score_Before'] = opponent_data['Event_Impact'].cumsum().shift(1).fillna(0)
+home_features = home_data.drop(['Event'], axis=1)
+opponent_features = opponent_data.drop(['Event'], axis=1)
+if 'Time' in home_features.columns:
+    home_features['Game Time'] = home_features['Time'].cumsum()
+else:
+    home_features['Time'] = 0
+    home_features['Game Time'] = 0
+if 'Time' in opponent_features.columns:
+    opponent_features['Game Time'] = opponent_features['Time'].cumsum()
+else:
+    opponent_features['Time'] = 0
+    opponent_features['Game Time'] = 0
+home_features['Transition_Probability'] = home_features['AVG metres'].apply(lambda x:build_transition_matrix(home_features['AVG metres'], seq=x)['Mean Transition Probability'])
+home_features['Sequence_Predictability'] = home_features['AVG metres'].apply(lambda x:build_transition_matrix(home_features['AVG metres'], seq=x)['Predictability of Sequence'])
+opponent_features['Transition_Probability'] = opponent_features['AVG metres'].apply(lambda x:build_transition_matrix(opponent_features['AVG metres'], seq=x)['Mean Transition Probability'])
+opponent_features['Sequence_Predictability'] = opponent_features['AVG metres'].apply(lambda x:build_transition_matrix(opponent_features['AVG metres'], seq=x)['Predictability of Sequence'])
+# Convert pass,tackle,lineout and scrums to percentage to capture efficiency of the numbers
+# Pass accuracy
+home_features['Pass Accuracy'] = home_features['Complete Pass']/(home_features['Complete Pass'] + home_features['Incomplete Pass'])
+opponent_features['Pass Accuracy'] = opponent_features['Complete Pass']/(opponent_features['Complete Pass'] + opponent_features['Incomplete Pass'])
+
+# Tackle completion
+home_features['Tackle Completion'] = home_features['Complete Tackle']/(home_features['Complete Tackle'] + home_features['Incomplete Tackle'])
+opponent_features['Tackle Completion'] = opponent_features['Complete Tackle']/(opponent_features['Complete Tackle'] + opponent_features['Incomplete Tackle'])
+
+# Lineout success 
+home_features['Lineout Success'] = home_features['Lineout won']/(home_features['Lineout won'] + home_features['Lineout lost'])
+opponent_features['Lineout Success'] = opponent_features['Lineout won']/(opponent_features['Lineout won'] + opponent_features['Lineout lost'])
+
+# Scrum success
+home_features['Scrum Success'] = home_features['Scrum won']/(home_features['Scrum won'] + home_features['Scrum lost'])
+opponent_features['Scrum Success'] = opponent_features['Scrum won']/(opponent_features['Scrum won'] + opponent_features['Scrum lost'])
+
+# Add relevant columns
+# ***list = ['Line Breaks', 'Mean Transition Probability', 'Opponent line breaks', 'Phases for opponents to lose ball' , 'Straight Out Kicks Number', 'Territorial Kicks Number']***
+# Line Breaks
+home_features['Offensive Line Breaks'] = home_features['AVG metres'].apply(count_line_breaks)
+opponent_features['Offensive Line Breaks'] = opponent_features['AVG metres'].apply(count_line_breaks)
+
+# Phases to loss of ball
+# home_features['Offensive Phases'] = 
+# opponent_features['Offensive Phases'] =
+
+# Opponent line breaks
+home_features['Defensive Line Breaks'] = opponent_features['AVG metres'].apply(count_line_breaks)
+opponent_features['Defensive Line Breaks'] = home_features['AVG metres'].apply(count_line_breaks)
+
+#Phases for opponents to lose ball
+# home_features['Defensive Phases'] = 
+# opponent_features['Defensive Phases'] =
+
+#Straight Out Kick Number
+home_features['Number of Straight Out Kicks'] = home_features['Straight Out Kick'].apply(lambda x: len(list(x)) if x != 0 else 0)
+opponent_features['Number of Straight Out Kicks'] = opponent_features['Straight Out Kick'].apply(lambda x: len(list(x)) if x != 0 else 0)
+
+#Territorial Kicks
+home_features['Number of Territorial Kicks'] = home_features['Territorial Kick'].apply(lambda x: len(list(x)) if x != 0 else 0)
+opponent_features['Number of Territorial Kicks'] = opponent_features['Territorial Kick'].apply(lambda x: len(list(x)) if x != 0 else 0)
+
+import hashlib
+
+def hash_sequence(seq):
+    if seq != 0:
+        s = str(seq)
+        return int(hashlib.md5(s.encode()).hexdigest(), 16) % (10**8)
+    else:
+        return 0
+
+#Convert to a number sequence
+   #  Carries
+home_features['AVG metres'] = home_features['AVG metres'].apply(numeric_sequence).apply(hash_sequence)
+opponent_features['AVG metres'] = home_features['AVG metres'].apply(numeric_sequence).apply(hash_sequence)
+   # Straight Out Kicks
+home_features['Straight Out Kick'] = home_features['Straight Out Kick'].apply(numeric_sequence).apply(hash_sequence)
+opponent_features['Straight Out Kick'] = opponent_features['Straight Out Kick'].apply(numeric_sequence).apply(hash_sequence)
+   #  Territorial Kick
+home_features['Territorial Kick'] = home_features['Territorial Kick'].apply(numeric_sequence).apply(hash_sequence)
+opponent_features['Territorial Kick'] = opponent_features['Territorial Kick'].apply(numeric_sequence).apply(hash_sequence)
+
+
+home_features_prep = home_features.drop(['Complete Pass', 'Incomplete Pass', 'Complete Tackle', 'Incomplete Tackle','Lineout won','Lineout lost', 'Scrum won', 'Scrum lost'], axis=1).fillna(0)
+home_features_corr = home_features_prep.drop(['AVG metres', 'Territorial Kick', 'Straight Out Kick'], axis=1)
+home_features_ml1 = home_features_prep.drop(['Event_Impact'], axis=1)
+
+
+opponent_features_prep = opponent_features.drop(['Complete Pass', 'Incomplete Pass', 'Complete Tackle', 'Incomplete Tackle','Lineout won','Lineout lost', 'Scrum won', 'Scrum lost'], axis=1).fillna(0)
+opponent_features_corr = opponent_features_prep.drop(['AVG metres', 'Territorial Kick', 'Straight Out Kick'], axis=1)
+opponent_features_ml1 = opponent_features_prep.drop(['Event_Impact'], axis=1)
+
+
+# STREAMLIT
+
 st.set_page_config(layout="centered", initial_sidebar_state="expanded", page_title = "Matchday Stats")
 st.title("Matchday Stats")
 
@@ -481,285 +611,576 @@ menu =['Home'] + teams
 selections = st.sidebar.selectbox('',menu)                             
 
 if selections == 'Home':
-    segment_control = st.segmented_control("",["Boro","Opponents"])
-    if segment_control == 'Boro':
-        st.subheader('Boro Statistics')
-        st.markdown('Middlesbrough collective statistics during the season')
-        dataset = pd.concat(home_dataset, axis=0, ignore_index=True)
-        dataset1= pd.concat(home_dataset[:-1], axis=0, ignore_index=True)
-        # dataset1 = home_datset[-2] 
-
-        #Tries
-        total_tries = len(dataset[dataset['Event'] == 'T'])
-        difference_tries = len(dataset[dataset['Event'] == 'T']) - len(dataset1[dataset1['Event'] == 'T'])
-
-        # Penalties
-        total_penalties = len(dataset[dataset['Event'] == 'P'])
-        difference_penalties = len(dataset[dataset['Event'] == 'P']) - len(dataset1[dataset1['Event'] == 'P'])
-
-        # 22 entries
-        total_22_entries = dataset['22 Entries For'].sum()
-        total_22_entries_1 = dataset1['22 Entries For'].sum()
-        difference_22_entries = dataset['22 Entries For'].sum() - dataset1['22 Entries For'].sum()
-        convert22 = []
-        convert22_1 = []
-        for team in home_dataset:
-            if '22 Entries For' in team.columns:
-                
-                con22r = (len(team[team['Event'] == 'T'])/ team['22 Entries For'].sum()) *100
-                convert22.append(con22r)
-            
-            else:
-                pass
-        conversionrate22 = str(round(sum(convert22) /len(convert22), 2)) + '%'
-        for team in home_dataset[:-1]:
-            if '22 Entries For' in team.columns:
-                
-                con22r = (len(team[team['Event'] == 'T'])/ team['22 Entries For'].sum()) *100
-                convert22_1.append(con22r)
-
-            else:
-                pass
-        difference_conversionrate22 = str(round(sum(convert22) /len(convert22), 2) - round(sum(convert22_1) /len(convert22_1), 2)) + '%'
-        
-        # Passes
-        total_passes = dataset['Complete Pass'].sum()
-        difference_passes = dataset['Complete Pass'].sum() - dataset1['Complete Pass'].sum()
-        
-        pass_accuracy = round((dataset['Complete Pass'].sum()/(dataset['Complete Pass'].sum() + dataset['Incomplete Pass'].sum())) * 100, 2)
-        difference_pass_accuracy =  round((dataset['Complete Pass'].sum()/(dataset['Complete Pass'].sum() + dataset['Incomplete Pass'].sum())) * 100, 2) - round((dataset1['Complete Pass'].sum()/(dataset1['Complete Pass'].sum() + dataset1['Incomplete Pass'].sum())) * 100, 2)
+    segment_control_home = st.segmented_control("",["Boro","Opponents"])
     
+    if segment_control_home == 'Boro':
+        segment_control_segment = st.selectbox("",["Statistics", "Analyses"])
+        if segment_control_segment == 'Statistics':
+            st.subheader('Boro Statistics')
+            st.markdown('Middlesbrough collective statistics during the season')
+            dataset = pd.concat(home_dataset, axis=0, ignore_index=True)
+            dataset1= pd.concat(home_dataset[:-1], axis=0, ignore_index=True)
+            # dataset1 = home_datset[-2] 
     
-        # Tackles
-        total_tackles = dataset['Complete Tackle'].sum()
-        difference_ttackles = dataset['Complete Tackle'].sum() - dataset1['Complete Tackle'].sum()
-        
-        tackle_success = round((dataset['Complete Tackle'].sum()/(dataset['Complete Tackle'].sum() + dataset['Incomplete Tackle'].sum())) * 100 ,2)
-        difference_tsuccess =  round((dataset['Complete Tackle'].sum()/(dataset['Complete Tackle'].sum() + dataset['Incomplete Tackle'].sum())) * 100, 2) -round((dataset1['Complete Tackle'].sum()/(dataset1['Complete Tackle'].sum() +dataset1['Incomplete Tackle'].sum())) * 100, 2)
+            #Tries
+            total_tries = len(dataset[dataset['Event'] == 'T'])
+            difference_tries = len(dataset[dataset['Event'] == 'T']) - len(dataset1[dataset1['Event'] == 'T'])
     
-        #Set Pieces
-        lineout_success = round((dataset['Lineout won'].sum()/(dataset['Lineout won'].sum() + dataset['Lineout lost'].sum())) * 100, 2)
-        difference_lineout =  round((dataset['Lineout won'].sum()/(dataset['Lineout won'].sum() + dataset['Lineout lost'].sum())) * 100, 2) -    round((dataset1['Lineout won'].sum()/(dataset1['Lineout won'].sum() + dataset1['Lineout lost'].sum())) * 100, 2)
-        
-        scrum_success = round((dataset['Scrum won'].sum()/(dataset['Scrum won'].sum() + dataset['Scrum lost'].sum())) * 100, 2)
-        difference_scrum =  round((dataset['Scrum won'].sum()/(dataset['Scrum won'].sum() + dataset['Scrum lost'].sum())) * 100, 2) - round((dataset1['Scrum won'].sum()/(dataset1['Scrum won'].sum() + dataset1['Scrum lost'].sum())) * 100, 2)
-
-        
-        # Metres Gained
-        avg_m = dataset['AVG metres'].apply(distance_avg).mean()
-        difference_avg_m = dataset['AVG metres'].apply(distance_avg).mean() - dataset1['AVG metres'].apply(distance_avg).mean()
-
-        negative_carries = dataset[dataset['AVG metres'].astype(str).str.contains('Z', na=False)]['AVG metres'].astype(str).str.count('Z').sum()
-        difference_negative_carries = dataset[dataset['AVG metres'].astype(str).str.contains('Z', na=False)]['AVG metres'].astype(str).str.count('Z').sum() - dataset1[dataset1['AVG metres'].astype(str).str.contains('Z', na=False)]['AVG metres'].astype(str).str.count('Z').sum()
-
-        # Carries
-        total_carries = dataset['Carries'].sum()
-        difference_carries = dataset['Carries'].sum() - dataset1['Carries'].sum()
-
-        dropped_balls = dataset[dataset['AVG metres'].astype(str).str.contains('X', na=False)]['AVG metres'].astype(str).str.count('X').sum()
-        difference_dropped_balls = dataset[dataset['AVG metres'].astype(str).str.contains('X', na=False)]['AVG metres'].astype(str).str.count('X').sum() - dataset1[dataset1['AVG metres'].astype(str).str.contains('X', na=False)]['AVG metres'].astype(str).str.count('X').sum()
-
-        # Line breaks
-        line_breaks = dataset['AVG metres'].apply(count_line_breaks).sum()
-        difference_line_breaks = dataset['AVG metres'].apply(count_line_breaks).sum() - dataset1['AVG metres'].apply(count_line_breaks).sum()
-        # st.metric(label="Temperature", value="70 °F", delta="1.2 °F")
-
-         # Kicks
-        straight_out_kicks = len(get_values(dataset['Straight Out Kick'], ranges_avg))
-        difference_so_kicks = len(get_values(dataset['Straight Out Kick'], ranges_avg)) - len(get_values(dataset1['Straight Out Kick'], ranges_avg))
-        
-        territorial_kicks = len(get_values(dataset['Territorial Kick'], ranges_avg))
-        difference_t_kicks = len(get_values(dataset['Territorial Kick'], ranges_avg)) - len(get_values(dataset1['Territorial Kick'], ranges_avg))
-        kpi = {
-            'Points': {'Tries': [total_tries, difference_tries],
-                       'Penalties': [total_penalties, difference_penalties],
-                      },
-            '22 Entries' : {'22 entries' : [total_22_entries, difference_22_entries],
-                          '22 Conversion rate': [conversionrate22, difference_conversionrate22], },
-            'Passes' : {'Total passes' :[total_passes, difference_passes],
-                         'Pass accuracy' :[pass_accuracy, difference_pass_accuracy]},
-            'Tackles' : {'Total tackles' :[total_tackles,difference_ttackles],
-                         'Tackle completion' :[tackle_success,difference_tsuccess]},
-            'Set Pieces':{'Lineout success':[lineout_success,difference_lineout],
-                         'Scrum success': [scrum_success,difference_scrum]},
-            'Ball Carries': {'Total Carries': [total_carries, difference_carries],
-                             'Dropped balls': [dropped_balls, difference_dropped_balls]},
-            'Metres Gained' : {'Average Carry metres': [avg_m, difference_avg_m],
-                              'Negative Carries': [negative_carries, difference_negative_carries]},
-            'Line Breaks' : {'Total Line Breaks': [line_breaks, difference_line_breaks]},
-            'Kicks' : {'Straight Out Kicks' : [straight_out_kicks, difference_so_kicks],
-                       'Territorial Kicks' : [territorial_kicks, difference_t_kicks]}
-            }
-        
-        for category,metrics in kpi.items():
-           
-            st.subheader(category)
-            col1, col2 = st.columns(2)
-            with col1:
-                for title, performance in list(metrics.items())[:len(metrics)//2]:
-                    st.metric(title, value=performance[0], delta=performance[1])
-            with col2:
-                for title, performance in list(metrics.items())[len(metrics)//2:]:
-                    st.metric(title, value=performance[0], delta=performance[1])
-
-        columns = dataset.columns
-        
-        
-        pills = st.pills("Metric",(columns))
-
-        def compare_bar_chart(metric_name):
-            if dataset[metric_name].dtype != 'O':
-                
-                fig, ax = plt.subplots()
-                ax.bar(['Recent', 'Previous'], [dataset[metric_name].mean(), dataset1[metric_name].mean()])
-                ax.set_title(f'{metric_name} average comparison to previous game')
-                ax.set_ylabel('Average value')
-                st.pyplot(fig)
-
-        for column in columns:
-            if pills == column:
-                compare_bar_chart(column)
+            # Penalties
+            total_penalties = len(dataset[dataset['Event'] == 'P'])
+            difference_penalties = len(dataset[dataset['Event'] == 'P']) - len(dataset1[dataset1['Event'] == 'P'])
     
-    if segment_control == 'Opponents':
-        st.subheader('Opponent Statistics')
-        st.markdown('Opponent collective statistics against Midlesbrough during the season')
-        # dataset = pd.concat(opponent_dataset, axis=0, ignore_index=True)
-        dataset = opponent_data
-        dataset1 = opponent_data1
-        # dataset1= pd.concat(opponent_dataset, axis=0, ignore_index=True)
-
-        #Tries
-        total_tries = len(dataset[dataset['Event'] == 'T'])
-        difference_tries = len(dataset[dataset['Event'] == 'T']) - len(dataset1[dataset1['Event'] == 'T'])
-
-        convert22 = []
-        convert22_1 = []
-        for team in opponent_dataset:
-            if '22 Entries For' in team.columns:
-                con22r = (len(team[team['Event'] == 'T'])/ team['22 Entries For'].sum()) *100
-                convert22.append(con22r)
-            
-            else:
-                pass
-        conversionrate22 = str(round(sum(convert22) /len(convert22), 2)) + '%'
-        for team in opponent_dataset[:-1]:
-            if '22 Entries For' in team.columns:
-                con22r = (len(team[team['Event'] == 'T'])/ team['22 Entries For'].sum()) *100
-                convert22_1.append(con22r)
-
-            else:
-                pass
-        difference_conversionrate22 = str(round(sum(convert22) /len(convert22), 2) - round(sum(convert22_1) /len(convert22_1), 2)) + '%'
-        
-        # Passes
-        total_passes = dataset['Complete Pass'].sum()
-        difference_passes = dataset['Complete Pass'].sum() - dataset1['Complete Pass'].sum()
-        
-        pass_accuracy = round((dataset['Complete Pass'].sum()/(dataset['Complete Pass'].sum() + dataset['Incomplete Pass'].sum())) * 100, 2)
-        difference_pass_accuracy =  round((dataset['Complete Pass'].sum()/(dataset['Complete Pass'].sum() + dataset['Incomplete Pass'].sum())) * 100, 2) - round((dataset1['Complete Pass'].sum()/(dataset1['Complete Pass'].sum() + dataset1['Incomplete Pass'].sum())) * 100, 2)
-    
-    
-        # Tackles
-        total_tackles = dataset['Complete Tackle'].sum()
-        difference_ttackles = dataset['Complete Tackle'].sum() - dataset1['Complete Tackle'].sum()
-        
-        tackle_success = round((dataset['Complete Tackle'].sum()/(dataset['Complete Tackle'].sum() + dataset['Incomplete Tackle'].sum())) * 100 ,2)
-        difference_tsuccess =  round((dataset['Complete Tackle'].sum()/(dataset['Complete Tackle'].sum() + dataset['Incomplete Tackle'].sum())) * 100, 2) -round((dataset1['Complete Tackle'].sum()/(dataset1['Complete Tackle'].sum() +dataset1['Incomplete Tackle'].sum())) * 100, 2)
-    
-        #Set Pieces
-        lineout_success = round((dataset['Lineout won'].sum()/(dataset['Lineout won'].sum() + dataset['Lineout lost'].sum())) * 100, 2)
-        difference_lineout =  round((dataset['Lineout won'].sum()/(dataset['Lineout won'].sum() + dataset['Lineout lost'].sum())) * 100, 2) -    round((dataset1['Lineout won'].sum()/(dataset1['Lineout won'].sum() + dataset1['Lineout lost'].sum())) * 100, 2)
-        
-        scrum_success = round((dataset['Scrum won'].sum()/(dataset['Scrum won'].sum() + dataset['Scrum lost'].sum())) * 100, 2)
-        difference_scrum =  round((dataset['Scrum won'].sum()/(dataset['Scrum won'].sum() + dataset['Scrum lost'].sum())) * 100, 2) - round((dataset1['Scrum won'].sum()/(dataset1['Scrum won'].sum() + dataset1['Scrum lost'].sum())) * 100, 2)
-
-        # Metres Gained
-        avg_m = dataset['AVG metres'].apply(distance_avg).mean()
-        difference_avg_m = dataset['AVG metres'].apply(distance_avg).mean() - dataset1['AVG metres'].apply(distance_avg).mean()
-
-        negative_carries = dataset[dataset['AVG metres'].astype(str).str.contains('Z', na=False)]['AVG metres'].astype(str).str.count('Z').sum()
-        difference_negative_carries = dataset[dataset['AVG metres'].astype(str).str.contains('Z', na=False)]['AVG metres'].astype(str).str.count('Z').sum() - dataset1[dataset1['AVG metres'].astype(str).str.contains('Z', na=False)]['AVG metres'].astype(str).str.count('Z').sum()
-
-        # Carries
-        total_carries = dataset['Carries'].sum()
-        difference_carries = dataset['Carries'].sum() - dataset1['Carries'].sum()
-
-        dropped_balls = dataset[dataset['AVG metres'].astype(str).str.contains('X', na=False)]['AVG metres'].astype(str).str.count('X').sum()
-        difference_dropped_balls = dataset[dataset['AVG metres'].astype(str).str.contains('X', na=False)]['AVG metres'].astype(str).str.count('X').sum() - dataset1[dataset1['AVG metres'].astype(str).str.contains('X', na=False)]['AVG metres'].astype(str).str.count('X').sum()
-
-         # Line breaks
-        line_breaks = dataset['AVG metres'].apply(count_line_breaks).sum()
-        difference_line_breaks = dataset['AVG metres'].apply(count_line_breaks).sum() - dataset1['AVG metres'].apply(count_line_breaks).sum()
-
-         # Kicks
-        straight_out_kicks = len(get_values(dataset['Straight Out Kick'], ranges_avg))
-        difference_so_kicks = len(get_values(dataset['Straight Out Kick'], ranges_avg)) - len(get_values(dataset1['Straight Out Kick'], ranges_avg))
-        
-        territorial_kicks = len(get_values(dataset['Territorial Kick'], ranges_avg))
-        difference_t_kicks = len(get_values(dataset['Territorial Kick'], ranges_avg)) - len(get_values(dataset1['Territorial Kick'], ranges_avg))
-
-        kpi = {
-            'Points': {'Tries': [total_tries, difference_tries],
-                       '22 Conversion rate': [conversionrate22, difference_conversionrate22]},
-            'Passes' : {'Total passes' :[total_passes, difference_passes],
-                         'Pass accuracy' :[pass_accuracy, difference_pass_accuracy]},
-            'Tackles' : {'Total tackles' :[total_tackles,difference_ttackles],
-                         'Tackle completion' :[tackle_success,difference_tsuccess]},
-            'Set Pieces':{'Lineout success':[lineout_success,difference_lineout],
-                         'Scrum success': [scrum_success,difference_scrum]},
-            'Ball Carries': {'Total Carries': [total_carries, difference_carries],
-                             'Dropped balls': [dropped_balls, difference_dropped_balls]},
-            'Metres Gained' : {'Average Carry metres': [avg_m, difference_avg_m],
-                              'Negative Carries': [negative_carries, difference_negative_carries]},
-            'Line Breaks' : {'Total Line Breaks': [line_breaks, difference_line_breaks]},
-            'Kicks' : {'Straight Out Kicks' : [straight_out_kicks, difference_so_kicks],
-                       'Territorial Kicks' : [territorial_kicks, difference_t_kicks]}
-            }
-        
-        for category,metrics in kpi.items():
-           
-            st.subheader(category)
-            col1, col2 = st.columns(2)
-            with col1:
-                for title, performance in list(metrics.items())[:len(metrics)//2]:
-                    st.metric(title, value=performance[0], delta=performance[1])
-            with col2:
-                for title, performance in list(metrics.items())[len(metrics)//2:]:
-                    st.metric(title, value=performance[0], delta=performance[1])
+            # 22 entries
+            total_22_entries = dataset['22 Entries For'].sum()
+            total_22_entries_1 = dataset1['22 Entries For'].sum()
+            difference_22_entries = dataset['22 Entries For'].sum() - dataset1['22 Entries For'].sum()
+            convert22 = []
+            convert22_1 = []
+            for team in home_dataset:
+                if '22 Entries For' in team.columns:
                     
-        columns = dataset.columns
-        
-        
-        pills = st.pills("Metric",(columns))
-
-        def compare_bar_chart(metric_name):
-            c_dataset = dataset.drop('Event', axis=1)
-            c_dataset1 = dataset1.drop('Event', axis=1)
-            if c_dataset[metric_name].dtype != 'O':
+                    con22r = (len(team[team['Event'] == 'T'])/ team['22 Entries For'].sum()) *100
+                    convert22.append(con22r)
                 
-                fig, ax = plt.subplots()
-                ax.bar(['Recent', 'Previous'], [c_dataset[metric_name].mean(), c_dataset1[metric_name].mean()])
-                ax.set_title(f'{metric_name} average comparison to previous game')
-                ax.set_ylabel('Average value')
-                st.pyplot(fig)
+                else:
+                    pass
+            conversionrate22 = str(round(sum(convert22) /len(convert22), 2)) + '%'
+            for team in home_dataset[:-1]:
+                if '22 Entries For' in team.columns:
+                    
+                    con22r = (len(team[team['Event'] == 'T'])/ team['22 Entries For'].sum()) *100
+                    convert22_1.append(con22r)
+    
+                else:
+                    pass
+            difference_conversionrate22 = str(round(sum(convert22) /len(convert22), 2) - round(sum(convert22_1) /len(convert22_1), 2)) + '%'
+            
+            # Passes
+            total_passes = dataset['Complete Pass'].sum()
+            difference_passes = dataset['Complete Pass'].sum() - dataset1['Complete Pass'].sum()
+            
+            pass_accuracy = round((dataset['Complete Pass'].sum()/(dataset['Complete Pass'].sum() + dataset['Incomplete Pass'].sum())) * 100, 2)
+            difference_pass_accuracy =  round((dataset['Complete Pass'].sum()/(dataset['Complete Pass'].sum() + dataset['Incomplete Pass'].sum())) * 100, 2) - round((dataset1['Complete Pass'].sum()/(dataset1['Complete Pass'].sum() + dataset1['Incomplete Pass'].sum())) * 100, 2)
+        
+        
+            # Tackles
+            total_tackles = dataset['Complete Tackle'].sum()
+            difference_ttackles = dataset['Complete Tackle'].sum() - dataset1['Complete Tackle'].sum()
+            
+            tackle_success = round((dataset['Complete Tackle'].sum()/(dataset['Complete Tackle'].sum() + dataset['Incomplete Tackle'].sum())) * 100 ,2)
+            difference_tsuccess =  round((dataset['Complete Tackle'].sum()/(dataset['Complete Tackle'].sum() + dataset['Incomplete Tackle'].sum())) * 100, 2) -round((dataset1['Complete Tackle'].sum()/(dataset1['Complete Tackle'].sum() +dataset1['Incomplete Tackle'].sum())) * 100, 2)
+        
+            #Set Pieces
+            lineout_success = round((dataset['Lineout won'].sum()/(dataset['Lineout won'].sum() + dataset['Lineout lost'].sum())) * 100, 2)
+            difference_lineout =  round((dataset['Lineout won'].sum()/(dataset['Lineout won'].sum() + dataset['Lineout lost'].sum())) * 100, 2) -    round((dataset1['Lineout won'].sum()/(dataset1['Lineout won'].sum() + dataset1['Lineout lost'].sum())) * 100, 2)
+            
+            scrum_success = round((dataset['Scrum won'].sum()/(dataset['Scrum won'].sum() + dataset['Scrum lost'].sum())) * 100, 2)
+            difference_scrum =  round((dataset['Scrum won'].sum()/(dataset['Scrum won'].sum() + dataset['Scrum lost'].sum())) * 100, 2) - round((dataset1['Scrum won'].sum()/(dataset1['Scrum won'].sum() + dataset1['Scrum lost'].sum())) * 100, 2)
+    
+            
+            # Metres Gained
+            avg_m = dataset['AVG metres'].apply(distance_avg).mean()
+            difference_avg_m = dataset['AVG metres'].apply(distance_avg).mean() - dataset1['AVG metres'].apply(distance_avg).mean()
+    
+            negative_carries = dataset[dataset['AVG metres'].astype(str).str.contains('Z', na=False)]['AVG metres'].astype(str).str.count('Z').sum()
+            difference_negative_carries = dataset[dataset['AVG metres'].astype(str).str.contains('Z', na=False)]['AVG metres'].astype(str).str.count('Z').sum() - dataset1[dataset1['AVG metres'].astype(str).str.contains('Z', na=False)]['AVG metres'].astype(str).str.count('Z').sum()
+    
+            # Carries
+            total_carries = dataset['Carries'].sum()
+            difference_carries = dataset['Carries'].sum() - dataset1['Carries'].sum()
+    
+            dropped_balls = dataset[dataset['AVG metres'].astype(str).str.contains('X', na=False)]['AVG metres'].astype(str).str.count('X').sum()
+            difference_dropped_balls = dataset[dataset['AVG metres'].astype(str).str.contains('X', na=False)]['AVG metres'].astype(str).str.count('X').sum() - dataset1[dataset1['AVG metres'].astype(str).str.contains('X', na=False)]['AVG metres'].astype(str).str.count('X').sum()
+    
+            # Line breaks
+            line_breaks = dataset['AVG metres'].apply(count_line_breaks).sum()
+            difference_line_breaks = dataset['AVG metres'].apply(count_line_breaks).sum() - dataset1['AVG metres'].apply(count_line_breaks).sum()
+            # st.metric(label="Temperature", value="70 °F", delta="1.2 °F")
+    
+             # Kicks
+            straight_out_kicks = len(get_values(dataset['Straight Out Kick'], ranges_avg))
+            difference_so_kicks = len(get_values(dataset['Straight Out Kick'], ranges_avg)) - len(get_values(dataset1['Straight Out Kick'], ranges_avg))
+            
+            territorial_kicks = len(get_values(dataset['Territorial Kick'], ranges_avg))
+            difference_t_kicks = len(get_values(dataset['Territorial Kick'], ranges_avg)) - len(get_values(dataset1['Territorial Kick'], ranges_avg))
+            kpi = {
+                'Points': {'Tries': [total_tries, difference_tries],
+                           'Penalties': [total_penalties, difference_penalties],
+                          },
+                '22 Entries' : {'22 entries' : [total_22_entries, difference_22_entries],
+                              '22 Conversion rate': [conversionrate22, difference_conversionrate22], },
+                'Passes' : {'Total passes' :[total_passes, difference_passes],
+                             'Pass accuracy' :[pass_accuracy, difference_pass_accuracy]},
+                'Tackles' : {'Total tackles' :[total_tackles,difference_ttackles],
+                             'Tackle completion' :[tackle_success,difference_tsuccess]},
+                'Set Pieces':{'Lineout success':[lineout_success,difference_lineout],
+                             'Scrum success': [scrum_success,difference_scrum]},
+                'Ball Carries': {'Total Carries': [total_carries, difference_carries],
+                                 'Dropped balls': [dropped_balls, difference_dropped_balls]},
+                'Metres Gained' : {'Average Carry metres': [avg_m, difference_avg_m],
+                                  'Negative Carries': [negative_carries, difference_negative_carries]},
+                'Line Breaks' : {'Total Line Breaks': [line_breaks, difference_line_breaks]},
+                'Kicks' : {'Straight Out Kicks' : [straight_out_kicks, difference_so_kicks],
+                           'Territorial Kicks' : [territorial_kicks, difference_t_kicks]}
+                }
+            
+            for category,metrics in kpi.items():
+               
+                st.subheader(category)
+                col1, col2 = st.columns(2)
+                with col1:
+                    for title, performance in list(metrics.items())[:len(metrics)//2]:
+                        st.metric(title, value=performance[0], delta=performance[1])
+                with col2:
+                    for title, performance in list(metrics.items())[len(metrics)//2:]:
+                        st.metric(title, value=performance[0], delta=performance[1])
+    
+            columns = dataset.columns
+            
+            
+            pills = st.pills("Metric",(columns))
+    
+            def compare_bar_chart(metric_name):
+                if dataset[metric_name].dtype != 'O':
+                    
+                    fig, ax = plt.subplots()
+                    ax.bar(['Recent', 'Previous'], [dataset[metric_name].mean(), dataset1[metric_name].mean()])
+                    ax.set_title(f'{metric_name} average comparison to previous game')
+                    ax.set_ylabel('Average value')
+                    st.pyplot(fig)
+    
+            for column in columns:
+                if pills == column:
+                    compare_bar_chart(column)
 
-            else:
-                fig, ax = plt.subplots()
-                ax.bar(['Recent', 'Previous'], [c_dataset[metric_name].apply(distance_avg).mean(), c_dataset1[metric_name].apply(distance_avg).mean()])
-                ax.set_title(f'{metric_name} average comparison to previous game')
-                ax.set_ylabel('Average value')
-                st.pyplot(fig)
+        if segment_control_segment == 'Analyses':
+            measure = ['Machine Learning','Correlation']
 
-        for column in columns:
-            if pills == column:
-                compare_bar_chart(column)
+            #Data analysis plays a vital role in modern sport, transforming raw match statistics into meaningful insights that support better decision-making. In performance environments where small margins can determine results, relying purely on observation or intuition is no longer enough. By systematically analysing data, teams can identify patterns, measure impact, and understand which aspects of performance truly influence outcomes. This allows coaches, analysts, and players to focus training and tactical planning on areas that provide the greatest competitive advantage.
+            
+            analyses_segment = st.pills("",measure)
+            if analyses_segment == 'Machine Learning':
+                st.title('Machine Learning')
+                range_columns=['Transition_Probability', 'Pass Accuracy','Tackle Completion', 'Lineout Success', 'Scrum Success']
+                arbitrary_columns=['Penalty For','Penalty Against', 'Knock-on', 'Forward', 'Turnover', 'Time', 'Carries', '22 Entries For', '22 Entries Against', 'Offensive Line Breaks', 'Defensive Line Breaks','Number of Straight Out Kicks', 'Number of Territorial Kicks','Game Time' ]
+                from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, Normalizer, StandardScaler, RobustScaler
+                from sklearn.compose import ColumnTransformer
+                from sklearn.pipeline import Pipeline,make_pipeline
+                
+                from sklearn.ensemble import RandomForestClassifier
+                from sklearn.base import clone
+                from sklearn.inspection import permutation_importance
+                
+                model = RandomForestClassifier(n_estimators=500, random_state=42)
+                range_processor = Pipeline(
+                                    steps=[('MInMax', MinMaxScaler())
+                                          ])
+                arbitrary_processor = Pipeline(
+                                    steps=[('robust', RobustScaler())
+                                          ])
+                ct1 = ColumnTransformer(
+                    [("Minmax", range_processor, range_columns),
+                     ('robust', arbitrary_processor, arbitrary_columns)],
+                        remainder="passthrough")
+                
+                rugby_pipeline = make_pipeline(
+                    ct1,
+                    model
+                )
+                t_model = clone(rugby_pipeline).fit(home_features_ml1, (home_data['Event'].isin(['T','TC'])).astype('int'))
+                c_model = clone(rugby_pipeline).fit(home_features_ml1, (home_data['Event'].isin(['C','CT','CTC'])).astype('int'))
+
+                t_feature_names = t_model.named_steps['columntransformer'].get_feature_names_out()
+                c_feature_names = c_model.named_steps['columntransformer'].get_feature_names_out()
+                
+                # Feature Importance
+                #'How much, on average, a feature reduces uncertainty in the target when it is used to split the data.'
+                t_importances = pd.Series(
+                    t_model.named_steps['randomforestclassifier'].feature_importances_,
+                    index=t_feature_names
+                ).sort_values(ascending=False)
+                t_importances.index = t_importances.index.str.split('__').str[-1]
+                c_importances = pd.Series(
+                    c_model.named_steps['randomforestclassifier'].feature_importances_,
+                    index=c_feature_names
+                ).sort_values(ascending=False)
+                c_importances.index = c_importances.index.str.split('__').str[-1]
+
+                #Permutation importance
+                #'Permutation importance measures how much each aspect of play truly drives outcomes once everything else is accounted for.'
+                conceding_features = permutation_importance(
+                    c_model,
+                    home_features_ml1,
+                    home_data['Event'].isin(['C','CT','CTC']).astype('int'),
+                    n_repeats=30,
+                    random_state=42
+                )
+                scoring_features = permutation_importance(
+                    t_model,
+                    home_features_ml1,
+                    home_data['Event'].isin(['TC', 'T']).astype('int'),
+                    n_repeats=30,
+                    random_state=42
+                )
+
+                conceding_df = pd.DataFrame({
+                    "feature": opponent_features_ml1.columns,
+                    "mean_importance": conceding_features.importances_mean,
+                    "std_importance": conceding_features.importances_std
+                }).sort_values(by="mean_importance", ascending=False)
+                
+                
+                scoring_df = pd.DataFrame({
+                    "feature": opponent_features_ml1.columns,
+                    "mean_importance": scoring_features.importances_mean,
+                    "std_importance": scoring_features.importances_std
+                }).sort_values(by="mean_importance", ascending=False)
+                
+                st.header('Rank of feature importance to scoring a try.')
+                #st.table(t_importances.head(5).index)
+                st.table(scoring_df)
+                
+                st.header('Rank of feature importance to conceding a try.')
+                #st.table(c_importances.head(5).index)
+                st.table(conceding_df)
+
+            if analyses_segment == 'Correlation':
+                st.title('Correlation')
+               
+                positive_correlation_matrix = {}
+                negative_correlation_matrix = {}
+                
+                for feature in home_features_corr.columns:
+                    columns = list(set(home_features_corr.columns) - {feature})
+                    for column in columns:
+                        x = home_features_corr[[feature, column]].corr().iloc[0, 1].item()
+                
+                        if x > 0.7:
+                            if f'{column} and {feature}' not in positive_correlation_matrix.keys(): 
+                                positive_correlation_matrix[f'{feature} and {column}'] = x
+                        elif x < -0.7:
+                            if f'{column} and {feature}' not in negative_correlation_matrix.keys():
+                                negative_correlation_matrix[f'{feature} and {column}'] = x
+            
+                if positive_correlation_matrix:
+                    pcm_df = (
+                        pd.DataFrame.from_dict(
+                            positive_correlation_matrix, 
+                            orient='index', 
+                            columns=['Correlation']
+                        )
+                        .sort_values('Correlation', ascending=False)
+                    )
+                    
+                    st.subheader('Key Features Positively Associated')
+                    st.write('Features that tended to increase as the other increased.')
+                    st.table(pcm_df.index)
+                else:
+                    st.subheader('Key Features Positively Associated')
+                    st.write('No feature pairs had a strong poitive correlation, meaning no features significantly increased together.')
+
+                if negative_correlation_matrix:
+                    ncm_df = (
+                        pd.DataFrame.from_dict(
+                            negative_correlation_matrix, 
+                            orient='index', 
+                            columns=['Correlation']
+                        )
+                        .sort_values('Correlation')
+                    )
+                
+    
+                
+                    st.subheader('Key Features Negatively Associated')
+                    st.write('Features that tended to increase as the other decreased.')
+                    st.table(ncm_df)
+                else:
+                    st.subheader('Key Features Negatively Associated with Points Scored')
+                    st.write('No feature pairs had a strong negative correlation, meaning no features significantly increased as another decreased.')
+    
+    if segment_control_home == 'Opponents':
+        segment_control_segment = st.segmented_control("",["Statistics", "Analyses"])
+        if segment_control_segment == 'Statistics':
+            st.subheader('Opponent Statistics')
+            st.markdown('Opponent collective statistics against Midlesbrough during the season')
+            # dataset = pd.concat(opponent_dataset, axis=0, ignore_index=True)
+            dataset = opponent_data
+            dataset1 = opponent_data1
+            # dataset1= pd.concat(opponent_dataset, axis=0, ignore_index=True)
+    
+            #Tries
+            total_tries = len(dataset[dataset['Event'] == 'T'])
+            difference_tries = len(dataset[dataset['Event'] == 'T']) - len(dataset1[dataset1['Event'] == 'T'])
+    
+            convert22 = []
+            convert22_1 = []
+            for team in opponent_dataset:
+                if '22 Entries For' in team.columns:
+                    con22r = (len(team[team['Event'] == 'T'])/ team['22 Entries For'].sum()) *100
+                    convert22.append(con22r)
+                
+                else:
+                    pass
+            conversionrate22 = str(round(sum(convert22) /len(convert22), 2)) + '%'
+            for team in opponent_dataset[:-1]:
+                if '22 Entries For' in team.columns:
+                    con22r = (len(team[team['Event'] == 'T'])/ team['22 Entries For'].sum()) *100
+                    convert22_1.append(con22r)
+    
+                else:
+                    pass
+            difference_conversionrate22 = str(round(sum(convert22) /len(convert22), 2) - round(sum(convert22_1) /len(convert22_1), 2)) + '%'
+            
+            # Passes
+            total_passes = dataset['Complete Pass'].sum()
+            difference_passes = dataset['Complete Pass'].sum() - dataset1['Complete Pass'].sum()
+            
+            pass_accuracy = round((dataset['Complete Pass'].sum()/(dataset['Complete Pass'].sum() + dataset['Incomplete Pass'].sum())) * 100, 2)
+            difference_pass_accuracy =  round((dataset['Complete Pass'].sum()/(dataset['Complete Pass'].sum() + dataset['Incomplete Pass'].sum())) * 100, 2) - round((dataset1['Complete Pass'].sum()/(dataset1['Complete Pass'].sum() + dataset1['Incomplete Pass'].sum())) * 100, 2)
+        
+        
+            # Tackles
+            total_tackles = dataset['Complete Tackle'].sum()
+            difference_ttackles = dataset['Complete Tackle'].sum() - dataset1['Complete Tackle'].sum()
+            
+            tackle_success = round((dataset['Complete Tackle'].sum()/(dataset['Complete Tackle'].sum() + dataset['Incomplete Tackle'].sum())) * 100 ,2)
+            difference_tsuccess =  round((dataset['Complete Tackle'].sum()/(dataset['Complete Tackle'].sum() + dataset['Incomplete Tackle'].sum())) * 100, 2) -round((dataset1['Complete Tackle'].sum()/(dataset1['Complete Tackle'].sum() +dataset1['Incomplete Tackle'].sum())) * 100, 2)
+        
+            #Set Pieces
+            lineout_success = round((dataset['Lineout won'].sum()/(dataset['Lineout won'].sum() + dataset['Lineout lost'].sum())) * 100, 2)
+            difference_lineout =  round((dataset['Lineout won'].sum()/(dataset['Lineout won'].sum() + dataset['Lineout lost'].sum())) * 100, 2) -    round((dataset1['Lineout won'].sum()/(dataset1['Lineout won'].sum() + dataset1['Lineout lost'].sum())) * 100, 2)
+            
+            scrum_success = round((dataset['Scrum won'].sum()/(dataset['Scrum won'].sum() + dataset['Scrum lost'].sum())) * 100, 2)
+            difference_scrum =  round((dataset['Scrum won'].sum()/(dataset['Scrum won'].sum() + dataset['Scrum lost'].sum())) * 100, 2) - round((dataset1['Scrum won'].sum()/(dataset1['Scrum won'].sum() + dataset1['Scrum lost'].sum())) * 100, 2)
+    
+            # Metres Gained
+            avg_m = dataset['AVG metres'].apply(distance_avg).mean()
+            difference_avg_m = dataset['AVG metres'].apply(distance_avg).mean() - dataset1['AVG metres'].apply(distance_avg).mean()
+    
+            negative_carries = dataset[dataset['AVG metres'].astype(str).str.contains('Z', na=False)]['AVG metres'].astype(str).str.count('Z').sum()
+            difference_negative_carries = dataset[dataset['AVG metres'].astype(str).str.contains('Z', na=False)]['AVG metres'].astype(str).str.count('Z').sum() - dataset1[dataset1['AVG metres'].astype(str).str.contains('Z', na=False)]['AVG metres'].astype(str).str.count('Z').sum()
+    
+            # Carries
+            total_carries = dataset['Carries'].sum()
+            difference_carries = dataset['Carries'].sum() - dataset1['Carries'].sum()
+    
+            dropped_balls = dataset[dataset['AVG metres'].astype(str).str.contains('X', na=False)]['AVG metres'].astype(str).str.count('X').sum()
+            difference_dropped_balls = dataset[dataset['AVG metres'].astype(str).str.contains('X', na=False)]['AVG metres'].astype(str).str.count('X').sum() - dataset1[dataset1['AVG metres'].astype(str).str.contains('X', na=False)]['AVG metres'].astype(str).str.count('X').sum()
+    
+             # Line breaks
+            line_breaks = dataset['AVG metres'].apply(count_line_breaks).sum()
+            difference_line_breaks = dataset['AVG metres'].apply(count_line_breaks).sum() - dataset1['AVG metres'].apply(count_line_breaks).sum()
+    
+             # Kicks
+            straight_out_kicks = len(get_values(dataset['Straight Out Kick'], ranges_avg))
+            difference_so_kicks = len(get_values(dataset['Straight Out Kick'], ranges_avg)) - len(get_values(dataset1['Straight Out Kick'], ranges_avg))
+            
+            territorial_kicks = len(get_values(dataset['Territorial Kick'], ranges_avg))
+            difference_t_kicks = len(get_values(dataset['Territorial Kick'], ranges_avg)) - len(get_values(dataset1['Territorial Kick'], ranges_avg))
+    
+            kpi = {
+                'Points': {'Tries': [total_tries, difference_tries],
+                           '22 Conversion rate': [conversionrate22, difference_conversionrate22]},
+                'Passes' : {'Total passes' :[total_passes, difference_passes],
+                             'Pass accuracy' :[pass_accuracy, difference_pass_accuracy]},
+                'Tackles' : {'Total tackles' :[total_tackles,difference_ttackles],
+                             'Tackle completion' :[tackle_success,difference_tsuccess]},
+                'Set Pieces':{'Lineout success':[lineout_success,difference_lineout],
+                             'Scrum success': [scrum_success,difference_scrum]},
+                'Ball Carries': {'Total Carries': [total_carries, difference_carries],
+                                 'Dropped balls': [dropped_balls, difference_dropped_balls]},
+                'Metres Gained' : {'Average Carry metres': [avg_m, difference_avg_m],
+                                  'Negative Carries': [negative_carries, difference_negative_carries]},
+                'Line Breaks' : {'Total Line Breaks': [line_breaks, difference_line_breaks]},
+                'Kicks' : {'Straight Out Kicks' : [straight_out_kicks, difference_so_kicks],
+                           'Territorial Kicks' : [territorial_kicks, difference_t_kicks]}
+                }
+            
+            for category,metrics in kpi.items():
+               
+                st.subheader(category)
+                col1, col2 = st.columns(2)
+                with col1:
+                    for title, performance in list(metrics.items())[:len(metrics)//2]:
+                        st.metric(title, value=performance[0], delta=performance[1])
+                with col2:
+                    for title, performance in list(metrics.items())[len(metrics)//2:]:
+                        st.metric(title, value=performance[0], delta=performance[1])
+                        
+            columns = dataset.columns
+            
+            
+            pills = st.pills("Metric",(columns))
+    
+            def compare_bar_chart(metric_name):
+                c_dataset = dataset.drop('Event', axis=1)
+                c_dataset1 = dataset1.drop('Event', axis=1)
+                if c_dataset[metric_name].dtype != 'O':
+                    
+                    fig, ax = plt.subplots()
+                    ax.bar(['Recent', 'Previous'], [c_dataset[metric_name].mean(), c_dataset1[metric_name].mean()])
+                    ax.set_title(f'{metric_name} average comparison to previous game')
+                    ax.set_ylabel('Average value')
+                    st.pyplot(fig)
+    
+                else:
+                    fig, ax = plt.subplots()
+                    ax.bar(['Recent', 'Previous'], [c_dataset[metric_name].apply(distance_avg).mean(), c_dataset1[metric_name].apply(distance_avg).mean()])
+                    ax.set_title(f'{metric_name} average comparison to previous game')
+                    ax.set_ylabel('Average value')
+                    st.pyplot(fig)
+    
+            for column in columns:
+                if pills == column:
+                    compare_bar_chart(column)
+
+        if segment_control_segment == 'Analyses':
+            analyses_segment = st.segmented_control("",['Machine Learning', 'Correlation'])
+            if analyses_segment == 'Machine Learning':
+                
+                range_columns=['Transition_Probability', 'Pass Accuracy','Tackle Completion', 'Lineout Success', 'Scrum Success']
+                arbitrary_columns=['Penalty For','Penalty Against', 'Knock-on', 'Forward', 'Turnover', 'Time', 'Carries', '22 Entries For', '22 Entries Against', 'Offensive Line Breaks', 'Defensive Line Breaks','Number of Straight Out Kicks', 'Number of Territorial Kicks','Game Time' ]
+                from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, Normalizer, StandardScaler, RobustScaler
+                from sklearn.compose import ColumnTransformer
+                from sklearn.pipeline import Pipeline,make_pipeline
+                
+                from sklearn.ensemble import RandomForestClassifier
+                from sklearn.base import clone
+                from sklearn.inspection import permutation_importance
+                
+                model = RandomForestClassifier(n_estimators=500, random_state=42)
+                range_processor = Pipeline(
+                                    steps=[('MInMax', MinMaxScaler())
+                                          ])
+                arbitrary_processor = Pipeline(
+                                    steps=[('robust', RobustScaler())
+                                          ])
+                ct1 = ColumnTransformer(
+                    [("Minmax", range_processor, range_columns),
+                     ('robust', arbitrary_processor, arbitrary_columns)],
+                        remainder="passthrough")
+                
+                rugby_pipeline = make_pipeline(
+                    ct1,
+                    model
+                )
+                t_model = clone(rugby_pipeline).fit(opponent_features_ml1, (opponent_data['Event'].isin(['T','TC'])).astype('int'))
+                c_model = clone(rugby_pipeline).fit(opponent_features_ml1, (opponent_data['Event'].isin(['C','CT','CTC'])).astype('int'))
+
+                t_feature_names = t_model.named_steps['columntransformer'].get_feature_names_out()
+                c_feature_names = c_model.named_steps['columntransformer'].get_feature_names_out()
+                
+                # Feature Importance
+                'How much, on average, a feature reduces uncertainty in the target when it is used to split the data.'
+                t_importances = pd.Series(
+                    t_model.named_steps['randomforestclassifier'].feature_importances_,
+                    index=t_feature_names
+                ).sort_values(ascending=False)
+                t_importances.index = t_importances.index.str.split('__').str[-1]
+                c_importances = pd.Series(
+                    c_model.named_steps['randomforestclassifier'].feature_importances_,
+                    index=c_feature_names
+                ).sort_values(ascending=False)
+                c_importances.index = c_importances.index.str.split('__').str[-1]
+
+                #Permutation importance
+                'Permutation importance measures how much each aspect of play truly drives outcomes once everything else is accounted for.'
+                conceding_features = permutation_importance(
+                    c_model,
+                    opponent_features_ml1,
+                    opponent_data['Event'].isin(['C','CT','CTC']).astype('int'),
+                    n_repeats=30,
+                    random_state=42
+                )
+                scoring_features = permutation_importance(
+                    t_model,
+                    home_features_ml1,
+                    opponent_data['Event'].isin(['TC', 'T']).astype('int'),
+                    n_repeats=30,
+                    random_state=42
+                )
+
+                conceding_df = pd.DataFrame({
+                    "feature": opponent_features_ml1.columns,
+                    "mean_importance": conceding_features.importances_mean,
+                    "std_importance": conceding_features.importances_std
+                }).sort_values(by="mean_importance", ascending=False)
+                
+                
+                scoring_df = pd.DataFrame({
+                    "feature": opponent_features_ml1.columns,
+                    "mean_importance": scoring_features.importances_mean,
+                    "std_importance": scoring_features.importances_std
+                }).sort_values(by="mean_importance", ascending=False)
+                
+                st.header('Rank of feature importance to scoring a try.')
+                #st.table(t_importances.head(5).index)
+                st.table(scoring_df)
+                
+                st.header('Rank of feature importance to conceding a try.')
+                #st.table(c_importances.head(5).index)
+                st.table(conceding_df)
+
+            if analyses_segment == 'Correlation':
+                st.title('Correlation')
+                
+                positive_correlation_matrix = {}
+                negative_correlation_matrix = {}
+                
+                for feature in home_features_corr.columns:
+                    columns = list(set(opponent_features_corr.columns) - {feature})
+                    for column in columns:
+                        x = opponent_features_corr[[feature, column]].corr().iloc[0, 1].item()
+                
+                        if x > 0.7:
+                            if f'{column} and {feature}' not in positive_correlation_matrix.keys(): 
+                                positive_correlation_matrix[f'{feature} and {column}'] = x
+                        elif x < -0.7:
+                            if f'{column} and {feature}' not in negative_correlation_matrix.keys():
+                                negative_correlation_matrix[f'{feature} and {column}'] = x
+            
+                if positive_correlation_matrix:
+                    pcm_df = (
+                        pd.DataFrame.from_dict(
+                            positive_correlation_matrix, 
+                            orient='index', 
+                            columns=['Correlation']
+                        )
+                        .sort_values('Correlation', ascending=False)
+                    )
+                    
+                    st.subheader('Key Features Positively Associated')
+                    st.write('Features that tended to increase as the other increased.')
+                    st.table(pcm_df.index)
+                else:
+                    st.subheader('Key Features Positively Associated')
+                    st.write('No feature pairs had a strong poitive correlation, meaning no features significantly increased together.')
+
+                if negative_correlation_matrix:
+                    ncm_df = (
+                        pd.DataFrame.from_dict(
+                            negative_correlation_matrix, 
+                            orient='index', 
+                            columns=['Correlation']
+                        )
+                        .sort_values('Correlation')
+                    )
+                
+    
+                
+                    st.subheader('Key Features Negatively Associated')
+                    st.write('Features that tended to increase as the other decreased.')
+                    st.table(ncm_df)
+                else:
+                    st.subheader('Key Features Negatively Associated with Points Scored')
+                    st.write('No feature pairs had a strong negative correlation, meaning no features significantly increased as another decreased.')
                 
             
 
 for team in teams:
     if selections == team:
         st.header(team)
-        segments = st.segmented_control('',['Overview', 'Match Report', 'Analyses'])
+        segments = st.segmented_control('',['Overview', 'Match Report'])
  
         
         #for dataset in datasets:
@@ -1077,300 +1498,534 @@ for team in teams:
                 )}')    
                 
         if segments == 'Match Report':
-                for n in range(len(home_df)):
-                    if home_df['Event'].iloc[n] == 'T':
-                        event = st.checkbox(f'Try by {home_team}', key=f"try_{home_team}_{n}")
-                    elif opponent_df['Event'].iloc[n] == 'T':
-                         event = st.checkbox(f'Try by {team}', key=f"try_{team}_{n}")
-                    elif home_df['Event'].iloc[n] == 'P':
-                        event = st.checkbox(f'Penalty by {home_team}', key=f"try_{home_team}_{n}")
-                    elif opponent_df['Event'].iloc[n] == 'P':
-                         event = st.checkbox(f'Penalty by {team}', key=f"try_{team}_{n}")
-                    else:
-                        if (home_df.iloc[n] != home_df.iloc[-1]).any():
-                            event = st.checkbox('Halftime', key=f"try_{team}_{n}")
-                        else:
-                             event = st.checkbox('Fulltime', key=f"try_{team}_{n}")
-                            
-                    if event:
-                        time = get_time(home_df['Time'].iloc[n])
-                        st.write(f'Duration : {time}' if time != None else 'Data yet to be recorded' )
-                        #Pass accuracy
-                        home_pass_acc = (home_df['Complete Pass'].iloc[n]/(home_df['Complete Pass'].iloc[n] + home_df['Incomplete Pass'].iloc[n])) * 100
-                        opp_pass_acc =(opponent_df['Complete Pass'].iloc[n]/(opponent_df['Complete Pass'].iloc[n] + opponent_df['Incomplete Pass'].iloc[n])) * 100
-                        #Tackle completion
-                        home_tackle_comp = (home_df['Complete Tackle'].iloc[n]/(home_df['Complete Tackle'].iloc[n] + home_df['Incomplete Tackle'].iloc[n])) * 100
-                        opp_tackle_comp = (opponent_df['Complete Tackle'].iloc[n]/(opponent_df['Complete Tackle'].iloc[n] + opponent_df['Incomplete Tackle'].iloc[n])) * 100
-                        #Lineout success
-                        home_lineout_succ = (home_df['Lineout won'].iloc[n]/(home_df['Lineout won'].iloc[n] + home_df['Lineout lost'].iloc[n])) * 100
-                        opp_lineout_succ = (opponent_df['Lineout won'].iloc[n]/(opponent_df['Lineout won'].iloc[n] + opponent_df['Lineout lost'].iloc[n])) * 100
-                        #Scrum success
-                        home_scrum_succ = (home_df['Scrum won'].iloc[n]/(home_df['Scrum won'].iloc[n] + home_df['Scrum lost'].iloc[n])) * 100
-                        opp_scrum_succ = (opponent_df['Scrum won'].iloc[n]/(opponent_df['Scrum won'].iloc[n] + opponent_df['Scrum lost'].iloc[n]))* 100
-
-                         # Average Carry Metres
-                        home_carry_metres = distance_avg(home_df['AVG metres'].iloc[n])
-                        opp_carry_metres = distance_avg(opponent_df['AVG metres'].iloc[n])
-    
-                        # Number of Territorial Kicks
-                        home_terr_num = [len(home_df['Territorial Kick'].iloc[n]) if home_df['Territorial Kick'].iloc[n] != 0 else 0]
-                        opp_terr_num = [len(opponent_df['Territorial Kick'].iloc[n]) if opponent_df['Territorial Kick'].iloc[n] != 0 else 0]
-                        # Average Territorial Kick Metres
-                        home_terr_metres = distance_avg(home_df['Territorial Kick'].iloc[n])
-                        opp_terr_metres = distance_avg(opponent_df['Territorial Kick'].iloc[n])
-    
-                        # Number of Territorial Kicks
-                        home_so_num = [len(home_df['Straight Out Kick'].iloc[n]) if home_df['Straight Out Kick'].iloc[n] != 0 else 0]
-                        opp_so_num = [len(opponent_df['Straight Out Kick'].iloc[n]) if opponent_df['Straight Out Kick'].iloc[n] != 0 else 0]
-                        # Average Straight Out Kicks
-                        home_so_metres = distance_avg(home_df['Straight Out Kick'].iloc[n])
-                        opp_so_metres = distance_avg(opponent_df['Straight Out Kick'].iloc[n])
-                        def pct(val, decimals=0):
-                            if val is None or pd.isna(val):
-                                return 0
-                            return f"{val:.{decimals}f}%"
-                        metric_kpi= {
-                            '':[home_team, team],
-                            'Pass accuracy': [pct(home_pass_acc), pct(opp_pass_acc)],
-                             'Tackle completion': [pct(home_tackle_comp or 0), pct(opp_tackle_comp)],
-                              'Lineout success': [ pct(home_lineout_succ), pct(opp_lineout_succ)],
-                              'Scrum success': [pct(home_scrum_succ), pct(opp_scrum_succ)],
-                               'Penalties':[home_df['Penalty For'].iloc[n], home_df['Penalty For'].iloc[n]],
-                               'Turnover':[home_df['Turnover'].iloc[n], opponent_df['Turnover'].iloc[n]],
-                               '22 Entries':[home_df['22 Entries For'].iloc[n], home_df['22 Entries For'].iloc[n]],
-                               'Number of Carries':[home_df['Carries'].iloc[n], opponent_df['Carries'].iloc[n]],
-                            'Average Carry Metres':[f'{home_carry_metres:.1f}m', f'{opp_carry_metres:.1f}m'],
-                           'Number of Territorial Kicks':[home_terr_num, opp_terr_num],
-                            'Average Territorial Kicks metres':[f'{home_terr_metres:.1f}m', f'{opp_terr_metres:.1f}m'],
-                           'Number of Straight Out Kicks':[home_so_num, opp_so_num],
-                           'Average Straight Out Kicks metres':[f'{home_so_metres:.1f}m', f'{opp_so_metres:.1f}m'],
-                               # 'Carry Metres':[],
-                               # 'Number of Kicks':[home_df['Turnover'].iloc[n], opponent_df['Turnover'].iloc[n]],
-                               # 'Kick Metres':[],
-                        }
-                        df = pd.DataFrame(metric_kpi).T.reset_index()
-                        df.columns = ["Metric", "Home", "Opp"]
-                        df_long = df.melt(id_vars="Metric", var_name="Team", value_name="Value")
-                        pd.set_option('display.colheader_justify', 'center')
-                        st.markdown(
-                            df[["Home", "Metric", "Opp"]]
-                            .to_html(index=False, justify="center"),
-                            unsafe_allow_html=True
-                        )
-
-                        st.subheader('')
-
-        if segments == 'Analyses':
-
-            carry_distribution_h = state_distribution(''.join(home_df['AVG metres'].astype('str').to_list()).replace('0',''))
-            carry_distribution_a = state_distribution(''.join(opponent_df['AVG metres'].astype('str').to_list()).replace('0',''))
-            dfch = pd.DataFrame(carry_distribution_h.items(), columns=['Ranges','Carries'])
-            dfca = pd.DataFrame(carry_distribution_a.items(), columns=['Ranges','Carries'])
-            st.subheader('Carry Metres')
-            st.table(dfch.merge(dfca, on='Ranges', suffixes=['_boro','_opponents']))
-            
-            terr_k_distribution_h = state_distribution(''.join(home_df['Territorial Kick'].astype('str').to_list()).replace('0',''))
-            terr_k_distribution_a = state_distribution(''.join(opponent_df['Territorial Kick'].astype('str').to_list()).replace('0',''))
-            dftkh = pd.DataFrame(terr_k_distribution_h.items(), columns=['Ranges','Territorial Kicks'])
-            dftka = pd.DataFrame(terr_k_distribution_a.items(), columns=['Ranges','Territorial Kicks'])
-            st.subheader('Territorial Kick Metres')
-            st.table(dftkh.merge(dftka, on='Ranges', suffixes=['_boro','_opponents']))
-            
-            so_k_distribution_h = state_distribution(''.join(home_df['Straight Out Kick'].astype('str').to_list()).replace('0',''))
-            so_k_distribution_a = state_distribution(''.join(opponent_df['Straight Out Kick'].astype('str').to_list()).replace('0',''))
-            dfsokh = pd.DataFrame(so_k_distribution_h.items(), columns=['Ranges','Straight Out Kicks'])
-            dfsoka = pd.DataFrame(so_k_distribution_a.items(), columns=['Ranges','Straight Out Kicks'])
-            st.subheader('Straight Out Kick Metres')
-            st.table(dfsokh.merge(dfsoka, on='Ranges', suffixes=['_boro','_opponents']))
-            
-            #st.table(dfa)
-            pick_team = st.pills("",[home_team, team])
-            home_df['Event_Impact'] = home_df['Event'].apply(lambda x: event_values.get(x))
-            home_df['Score_Before'] = home_df['Event_Impact'].cumsum().shift(1).fillna(0)
-            opponent_df['Event_Impact'] = opponent_df['Event'].apply(lambda x: event_values.get(x))
-            opponent_df['Score_Before'] = opponent_df['Event_Impact'].cumsum().shift(1).fillna(0)
-            home_features = home_df.drop(['Event','Event_Impact'], axis=1)
-            opponent_features = opponent_df.drop(['Event','Event_Impact'], axis=1)
-            if 'Time' in home_df.columns:
-                home_features['Game Time'] = home_features['Time'].cumsum()
-            else:
-                home_features['Time'] = 0
-                home_features['Game Time'] = 0
-            if 'Time' in opponent_features.columns:
-                opponent_features['Game Time'] = opponent_features['Time'].cumsum()
-            else:
-                opponent_features['Time'] = 0
-                opponent_features['Game Time'] = 0
-            home_features['Transition_Probability'] = home_features['AVG metres'].apply(lambda x:build_transition_matrix(home_features['AVG metres'], seq=x)['Mean Transition Probability'])
-            home_features['Sequence_Predictability'] = home_features['AVG metres'].apply(lambda x:build_transition_matrix(home_features['AVG metres'], seq=x)['Predictability of Sequence'])
-            opponent_features['Transition_Probability'] = opponent_features['AVG metres'].apply(lambda x:build_transition_matrix(home_df['AVG metres'], seq=x)['Mean Transition Probability'])
-            opponent_features['Sequence_Predictability'] = opponent_features['AVG metres'].apply(lambda x:build_transition_matrix(home_df['AVG metres'], seq=x)['Predictability of Sequence'])
-            # Convert pass,tackle,lineout and scrums to percentage to capture efficiency of the numbers
-            # Pass accuracy
-            home_features['Pass Accuracy'] = home_features['Complete Pass']/(home_features['Complete Pass'] + home_features['Incomplete Pass'])
-            opponent_features['Pass Accuracy'] = opponent_features['Complete Pass']/(opponent_features['Complete Pass'] + opponent_features['Incomplete Pass'])
-            
-            # Tackle completion
-            home_features['Tackle Completion'] = home_features['Complete Tackle']/(home_features['Complete Tackle'] + home_features['Incomplete Tackle'])
-            opponent_features['Tackle Completion'] = opponent_features['Complete Tackle']/(opponent_features['Complete Tackle'] + opponent_features['Incomplete Tackle'])
-            
-            # Lineout success 
-            home_features['Lineout Success'] = home_features['Lineout won']/(home_features['Lineout won'] + home_features['Lineout lost'])
-            opponent_features['Lineout Success'] = opponent_features['Lineout won']/(opponent_features['Lineout won'] + opponent_features['Lineout lost'])
-            
-            # Scrum success
-            home_features['Scrum Success'] = home_features['Scrum won']/(home_features['Scrum won'] + home_features['Scrum lost'])
-            opponent_features['Scrum Success'] = opponent_features['Scrum won']/(opponent_features['Scrum won'] + opponent_features['Scrum lost'])
-            
-            # Add relevant columns
-            # ***list = ['Line Breaks', 'Mean Transition Probability', 'Opponent line breaks', 'Phases for opponents to lose ball' , 'Straight Out Kicks Number', 'Territorial Kicks Number']***
-            # Line Breaks
-            home_features['Offensive Line Breaks'] = home_features['AVG metres'].apply(count_line_breaks)
-            opponent_features['Offensive Line Breaks'] = opponent_features['AVG metres'].apply(count_line_breaks)
-            
-            # Phases to loss of ball
-            # home_features['Offensive Phases'] = 
-            # opponent_features['Offensive Phases'] =
-            
-            # Opponent line breaks
-            home_features['Defensive Line Breaks'] = opponent_features['AVG metres'].apply(count_line_breaks)
-            opponent_features['Defensive Line Breaks'] = home_features['AVG metres'].apply(count_line_breaks)
-            
-            #Phases for opponents to lose ball
-            # home_features['Defensive Phases'] = 
-            # opponent_features['Defensive Phases'] =
-            
-            #Straight Out Kick Number
-            home_features['Number of Straight Out Kicks'] = home_features['Straight Out Kick'].apply(lambda x: len(list(x)) if x != 0 else 0)
-            opponent_features['Number of Straight Out Kicks'] = opponent_features['Straight Out Kick'].apply(lambda x: len(list(x)) if x != 0 else 0)
-
-            #Territorial Kicks
-            home_features['Number of Territorial Kicks'] = home_features['Territorial Kick'].apply(lambda x: len(list(x)) if x != 0 else 0)
-            opponent_features['Number of Territorial Kicks'] = opponent_features['Territorial Kick'].apply(lambda x: len(list(x)) if x != 0 else 0)
-
-            import hashlib
-
-            def hash_sequence(seq):
-                if seq != 0:
-                    s = str(seq)
-                    return int(hashlib.md5(s.encode()).hexdigest(), 16) % (10**8)
+            for n in range(len(home_df)):
+                if home_df['Event'].iloc[n] == 'T':
+                    event = st.checkbox(f'Try by {home_team}', key=f"try_{home_team}_{n}")
+                elif opponent_df['Event'].iloc[n] == 'T':
+                     event = st.checkbox(f'Try by {team}', key=f"try_{team}_{n}")
+                elif home_df['Event'].iloc[n] == 'P':
+                    event = st.checkbox(f'Penalty by {home_team}', key=f"try_{home_team}_{n}")
+                elif opponent_df['Event'].iloc[n] == 'P':
+                     event = st.checkbox(f'Penalty by {team}', key=f"try_{team}_{n}")
                 else:
-                    return 0
-            
-            #Convert to a number sequence
-               #  Carries
-            home_features['AVG metres'] = home_features['AVG metres'].apply(numeric_sequence).apply(hash_sequence)
-            opponent_features['AVG metres'] = home_features['AVG metres'].apply(numeric_sequence).apply(hash_sequence)
-               # Straight Out Kicks
-            home_features['Straight Out Kick'] = home_features['Straight Out Kick'].apply(numeric_sequence).apply(hash_sequence)
-            opponent_features['Straight Out Kick'] = opponent_features['Straight Out Kick'].apply(numeric_sequence).apply(hash_sequence)
-               #  Territorial Kick
-            home_features['Territorial Kick'] = home_features['Territorial Kick'].apply(numeric_sequence).apply(hash_sequence)
-            opponent_features['Territorial Kick'] = opponent_features['Territorial Kick'].apply(numeric_sequence).apply(hash_sequence)
-            
-            home_features_ml1 = home_features.drop(['Complete Pass', 'Incomplete Pass', 'Complete Tackle', 'Incomplete Tackle','Lineout won','Lineout lost', 'Scrum won', 'Scrum lost'], axis=1).fillna(0)
-            opponent_features_ml1 = opponent_features.drop(['Complete Pass', 'Incomplete Pass', 'Complete Tackle', 'Incomplete Tackle','Lineout won','Lineout lost', 'Scrum won', 'Scrum lost'], axis=1).fillna(0)
+                    if (home_df.iloc[n] != home_df.iloc[-1]).any():
+                        event = st.checkbox('Halftime', key=f"try_{team}_{n}")
+                    else:
+                         event = st.checkbox('Fulltime', key=f"try_{team}_{n}")
+                        
+                if event:
+                    time = get_time(home_df['Time'].iloc[n])
+                    st.write(f'Duration : {time}' if time != None else 'Data yet to be recorded' )
+                    #Pass accuracy
+                    home_pass_acc = (home_df['Complete Pass'].iloc[n]/(home_df['Complete Pass'].iloc[n] + home_df['Incomplete Pass'].iloc[n])) * 100
+                    opp_pass_acc =(opponent_df['Complete Pass'].iloc[n]/(opponent_df['Complete Pass'].iloc[n] + opponent_df['Incomplete Pass'].iloc[n])) * 100
+                    #Tackle completion
+                    home_tackle_comp = (home_df['Complete Tackle'].iloc[n]/(home_df['Complete Tackle'].iloc[n] + home_df['Incomplete Tackle'].iloc[n])) * 100
+                    opp_tackle_comp = (opponent_df['Complete Tackle'].iloc[n]/(opponent_df['Complete Tackle'].iloc[n] + opponent_df['Incomplete Tackle'].iloc[n])) * 100
+                    #Lineout success
+                    home_lineout_succ = (home_df['Lineout won'].iloc[n]/(home_df['Lineout won'].iloc[n] + home_df['Lineout lost'].iloc[n])) * 100
+                    opp_lineout_succ = (opponent_df['Lineout won'].iloc[n]/(opponent_df['Lineout won'].iloc[n] + opponent_df['Lineout lost'].iloc[n])) * 100
+                    #Scrum success
+                    home_scrum_succ = (home_df['Scrum won'].iloc[n]/(home_df['Scrum won'].iloc[n] + home_df['Scrum lost'].iloc[n])) * 100
+                    opp_scrum_succ = (opponent_df['Scrum won'].iloc[n]/(opponent_df['Scrum won'].iloc[n] + opponent_df['Scrum lost'].iloc[n]))* 100
 
+                     # Average Carry Metres
+                    home_carry_metres = distance_avg(home_df['AVG metres'].iloc[n])
+                    opp_carry_metres = distance_avg(opponent_df['AVG metres'].iloc[n])
+
+                    # Number of Territorial Kicks
+                    home_terr_num = [len(home_df['Territorial Kick'].iloc[n]) if home_df['Territorial Kick'].iloc[n] != 0 else 0]
+                    opp_terr_num = [len(opponent_df['Territorial Kick'].iloc[n]) if opponent_df['Territorial Kick'].iloc[n] != 0 else 0]
+                    # Average Territorial Kick Metres
+                    home_terr_metres = distance_avg(home_df['Territorial Kick'].iloc[n])
+                    opp_terr_metres = distance_avg(opponent_df['Territorial Kick'].iloc[n])
+
+                    # Number of Territorial Kicks
+                    home_so_num = [len(home_df['Straight Out Kick'].iloc[n]) if home_df['Straight Out Kick'].iloc[n] != 0 else 0]
+                    opp_so_num = [len(opponent_df['Straight Out Kick'].iloc[n]) if opponent_df['Straight Out Kick'].iloc[n] != 0 else 0]
+                    # Average Straight Out Kicks
+                    home_so_metres = distance_avg(home_df['Straight Out Kick'].iloc[n])
+                    opp_so_metres = distance_avg(opponent_df['Straight Out Kick'].iloc[n])
+                    def pct(val, decimals=0):
+                        if val is None or pd.isna(val):
+                            return 0
+                        return f"{val:.{decimals}f}%"
+                    metric_kpi= {
+                        '':[home_team, team],
+                        'Pass accuracy': [pct(home_pass_acc), pct(opp_pass_acc)],
+                         'Tackle completion': [pct(home_tackle_comp or 0), pct(opp_tackle_comp)],
+                          'Lineout success': [ pct(home_lineout_succ), pct(opp_lineout_succ)],
+                          'Scrum success': [pct(home_scrum_succ), pct(opp_scrum_succ)],
+                           'Penalties':[home_df['Penalty For'].iloc[n], home_df['Penalty For'].iloc[n]],
+                           'Turnover':[home_df['Turnover'].iloc[n], opponent_df['Turnover'].iloc[n]],
+                           '22 Entries':[home_df['22 Entries For'].iloc[n], home_df['22 Entries For'].iloc[n]],
+                           'Number of Carries':[home_df['Carries'].iloc[n], opponent_df['Carries'].iloc[n]],
+                        'Average Carry Metres':[f'{home_carry_metres:.1f}m', f'{opp_carry_metres:.1f}m'],
+                       'Number of Territorial Kicks':[home_terr_num, opp_terr_num],
+                        'Average Territorial Kicks metres':[f'{home_terr_metres:.1f}m', f'{opp_terr_metres:.1f}m'],
+                       'Number of Straight Out Kicks':[home_so_num, opp_so_num],
+                       'Average Straight Out Kicks metres':[f'{home_so_metres:.1f}m', f'{opp_so_metres:.1f}m'],
+                           # 'Carry Metres':[],
+                           # 'Number of Kicks':[home_df['Turnover'].iloc[n], opponent_df['Turnover'].iloc[n]],
+                           # 'Kick Metres':[],
+                    }
+                    df = pd.DataFrame(metric_kpi).T.reset_index()
+                    df.columns = ["Metric", "Home", "Opp"]
+                    df_long = df.melt(id_vars="Metric", var_name="Team", value_name="Value")
+                    pd.set_option('display.colheader_justify', 'center')
+                    st.markdown(
+                        df[["Home", "Metric", "Opp"]]
+                        .to_html(index=False, justify="center"),
+                        unsafe_allow_html=True
+                    )
+                    st.subheader(f'{home_team} play sequence')
+                    st.markdown(f'Carry sequences showed {combined_attack_interpretation(
+                    build_transition_matrix(home_df['AVG metres'].iloc[n],''.join(home_df['AVG metres'].astype('str').to_list()).replace('0',''))['Mean Transition Probability'],
+                    build_transition_matrix(home_df['AVG metres'].iloc[n],''.join(home_df['AVG metres'].astype('str').to_list()).replace('0',''))['Predictability of Sequence']
+                )}')
+                    st.write()
+                    st.subheader(f'{team} play sequence')
+                    st.markdown(f'Carry sequences showed {combined_attack_interpretation(
+                    build_transition_matrix(opponent_df['AVG metres'].iloc[n],''.join(opponent_df['AVG metres'].astype('str').to_list()).replace('0',''))['Mean Transition Probability'],
+                    build_transition_matrix(opponent_df['AVG metres'].iloc[n],''.join(opponent_df['AVG metres'].astype('str').to_list()).replace('0',''))['Predictability of Sequence']
+                )}')
+                    
+        # if segments == 'Analyses':
+        #     measure = ['Correlation', 'Feature Importance', 'Permutation Importance', 'Regression Analyses']
+
+        #     #Data analysis plays a vital role in modern sport, transforming raw match statistics into meaningful insights that support better decision-making. In performance environments where small margins can determine results, relying purely on observation or intuition is no longer enough. By systematically analysing data, teams can identify patterns, measure impact, and understand which aspects of performance truly influence outcomes. This allows coaches, analysts, and players to focus training and tactical planning on areas that provide the greatest competitive advantage.
+        #     st.write(
+        #         """
+        #         Data Analyses allows us to transform raw match statistics into meaningful insights to suport better decision making.
+        #         By systmatically analysing data, we can identify patterns, measure impact and understand which aspects of performance truly influence outcomes.
+        #         This in turn allows coaches, analysts and players to focus training and tactical planning on areas that provide greatest competitive advantage.
+        #         """
+        #     )
+        #     pick_team = st.segmented_control('',[home_team,team])
+
+        #     home_df['Event Impact'] = home_df['Event'].apply(lambda x: event_values.get(x))
+        #     home_df['Score Before'] = home_df['Event Impact'].cumsum().shift(1).fillna(0)
+        #     opponent_df['Event Impact'] = opponent_df['Event'].apply(lambda x: event_values.get(x))
+        #     opponent_df['Score Before'] = opponent_df['Event Impact'].cumsum().shift(1).fillna(0)
+        #     home_features = home_df.drop(['Event'], axis=1)
+        #     opponent_features = opponent_df.drop(['Event'], axis=1)
+        #     if 'Time' in home_features.columns:
+        #         home_features['Game Time'] = home_features['Time'].cumsum()
+        #     else:
+        #         home_features['Time'] = 0
+        #         home_features['Game Time'] = 0
+        #     if 'Time' in opponent_features.columns:
+        #         opponent_features['Game Time'] = opponent_features['Time'].cumsum()
+        #     else:
+        #         opponent_features['Time'] = 0
+        #         opponent_features['Game Time'] = 0
+        #     home_features['Transition Probability'] = home_features['AVG metres'].apply(lambda x:build_transition_matrix(home_features['AVG metres'], seq=x)['Mean Transition Probability'])
+        #     home_features['Sequence Predictability'] = home_features['AVG metres'].apply(lambda x:build_transition_matrix(home_features['AVG metres'], seq=x)['Predictability of Sequence'])
+        #     opponent_features['Transition Probability'] = opponent_features['AVG metres'].apply(lambda x:build_transition_matrix(opponent_features['AVG metres'], seq=x)['Mean Transition Probability'])
+        #     opponent_features['Sequence Predictability'] = opponent_features['AVG metres'].apply(lambda x:build_transition_matrix(opponent_features['AVG metres'], seq=x)['Predictability of Sequence'])
+        #     # Convert pass,tackle,lineout and scrums to percentage to capture efficiency of the numbers
+        #     # Pass accuracy
+        #     home_features['Pass Accuracy'] = home_features['Complete Pass']/(home_features['Complete Pass'] + home_features['Incomplete Pass'])
+        #     opponent_features['Pass Accuracy'] = opponent_features['Complete Pass']/(opponent_features['Complete Pass'] + opponent_features['Incomplete Pass'])
+            
+        #     # Tackle completion
+        #     home_features['Tackle Completion'] = home_features['Complete Tackle']/(home_features['Complete Tackle'] + home_features['Incomplete Tackle'])
+        #     opponent_features['Tackle Completion'] = opponent_features['Complete Tackle']/(opponent_features['Complete Tackle'] + opponent_features['Incomplete Tackle'])
+            
+        #     # Lineout success 
+        #     home_features['Lineout Success'] = home_features['Lineout won']/(home_features['Lineout won'] + home_features['Lineout lost'])
+        #     opponent_features['Lineout Success'] = opponent_features['Lineout won']/(opponent_features['Lineout won'] + opponent_features['Lineout lost'])
+            
+        #     # Scrum success
+        #     home_features['Scrum Success'] = home_features['Scrum won']/(home_features['Scrum won'] + home_features['Scrum lost'])
+        #     opponent_features['Scrum Success'] = opponent_features['Scrum won']/(opponent_features['Scrum won'] + opponent_features['Scrum lost'])
+            
+        #     # Add relevant columns
+        #     # ***list = ['Line Breaks', 'Mean Transition Probability', 'Opponent line breaks', 'Phases for opponents to lose ball' , 'Straight Out Kicks Number', 'Territorial Kicks Number']***
+        #     # Line Breaks
+        #     home_features['Offensive Line Breaks'] = home_features['AVG metres'].apply(count_line_breaks)
+        #     opponent_features['Offensive Line Breaks'] = opponent_features['AVG metres'].apply(count_line_breaks)
+            
+        #     # Phases to loss of ball
+        #     # home_features['Offensive Phases'] = 
+        #     # opponent_features['Offensive Phases'] =
+            
+        #     # Opponent line breaks
+        #     home_features['Defensive Line Breaks'] = opponent_features['AVG metres'].apply(count_line_breaks)
+        #     opponent_features['Defensive Line Breaks'] = home_features['AVG metres'].apply(count_line_breaks)
+            
+        #     #Phases for opponents to lose ball
+        #     # home_features['Defensive Phases'] = 
+        #     # opponent_features['Defensive Phases'] =
+
+        #     home_features['Average Carry Distance'] = home_features['AVG metres'].apply(distance_avg)
+        #     opponent_features['Average Carry Distance'] = opponent_features['AVG metres'].apply(distance_avg) 
+            
+        #     #Straight Out Kick Number and averages
+        #     home_features['Number of Straight Out Kicks'] = home_features['Straight Out Kick'].apply(lambda x: len(list(x)) if x != 0 else 0)
+        #     opponent_features['Number of Straight Out Kicks'] = opponent_features['Straight Out Kick'].apply(lambda x: len(list(x)) if x != 0 else 0)
+        #     home_features['Average Straight Out Kick Distance'] = home_features['Straight Out Kick'].apply(distance_avg)
+        #     opponent_features['Average Straight Out Kick Distance'] = opponent_features['Straight Out Kick'].apply(distance_avg)
+            
+        #     #Territorial Kicks number and averages
+        #     home_features['Number of Territorial Kicks'] = home_features['Territorial Kick'].apply(lambda x: len(list(x)) if x != 0 else 0)
+        #     opponent_features['Number of Territorial Kicks'] = opponent_features['Territorial Kick'].apply(lambda x: len(list(x)) if x != 0 else 0)
+        #     home_features['Average Territorial Kick Distance'] = home_features['Straight Out Kick'].apply(distance_avg)
+        #     opponent_features['Average Territorial Kick Distance'] = opponent_features['Straight Out Kick'].apply(distance_avg)
+            
+        #     import hashlib
+            
+        #     def hash_sequence(seq):
+        #         if seq != 0:
+        #             s = str(seq)
+        #             return int(hashlib.md5(s.encode()).hexdigest(), 16) % (10**8)
+        #         else:
+        #             return 0
+            
+        #     #Convert to a number sequence
+        #        #  Carries
+        #     home_features['AVG metres'] = home_features['AVG metres'].apply(numeric_sequence).apply(hash_sequence)
+        #     opponent_features['AVG metres'] = opponent_features['AVG metres'].apply(numeric_sequence).apply(hash_sequence)
+        #        # Straight Out Kicks
+        #     home_features['Straight Out Kick'] = home_features['Straight Out Kick'].apply(numeric_sequence).apply(hash_sequence)
+        #     opponent_features['Straight Out Kick'] = opponent_features['Straight Out Kick'].apply(numeric_sequence).apply(hash_sequence)
+        #        #  Territorial Kick
+        #     home_features['Territorial Kick'] = home_features['Territorial Kick'].apply(numeric_sequence).apply(hash_sequence)
+        #     opponent_features['Territorial Kick'] = opponent_features['Territorial Kick'].apply(numeric_sequence).apply(hash_sequence)
+            
+        #     home_features_prep = home_features.drop(['Complete Pass', 'Incomplete Pass', 'Complete Tackle', 'Incomplete Tackle','Lineout won','Lineout lost', 'Scrum won', 'Scrum lost'], axis=1).fillna(0)
+        #     home_features_corr = home_features_prep.drop(['AVG metres','Straight Out Kick', 'Territorial Kick'], axis=1)
+        #     home_features_ml = home_features_prep.drop('Event Impact', axis=1)
+        #     opponent_features_prep = opponent_features.drop(['Complete Pass', 'Incomplete Pass', 'Complete Tackle', 'Incomplete Tackle','Lineout won','Lineout lost', 'Scrum won', 'Scrum lost'], axis=1).fillna(0)
+        #     opponent_features_corr = opponent_features_prep.drop(['AVG metres','Straight Out Kick', 'Territorial Kick'], axis=1)
+        #     opponent_features_ml = opponent_features_prep.drop('Event Impact', axis=1)
+            
+        #     if pick_team == home_team:
+        #         range_columns=['Transition Probability', 'Pass Accuracy','Tackle Completion', 'Lineout Success', 'Scrum Success']
+        #         arbitrary_columns=['Penalty For','Penalty Against', 'Knock-on', 'Forward', 'Turnover', 'Time', 'Carries', '22 Entries For', '22 Entries Against', 'Offensive Line Breaks', 'Defensive Line Breaks','Number of Straight Out Kicks', 'Number of Territorial Kicks','Game Time' ]
+        #         from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, Normalizer, StandardScaler, RobustScaler
+        #         from sklearn.compose import ColumnTransformer
+        #         from sklearn.pipeline import Pipeline,make_pipeline
+
+        #         from sklearn.inspection import permutation_importance
+        #         from sklearn.base import clone
+
+        #         model = RandomForestClassifier(n_estimators=500, random_state=42)
+        #         range_processor = Pipeline(
+        #                             steps=[('MInMax', MinMaxScaler())
+        #                                   ])
+        #         arbitrary_processor = Pipeline(
+        #                             steps=[('robust', RobustScaler())
+        #                                   ])
+        #         ct1 = ColumnTransformer(
+        #             [("Minmax", range_processor, range_columns),
+        #              ('robust', arbitrary_processor, arbitrary_columns)],
+        #                 remainder="passthrough")
+
+                
+        #         rugby_pipeline = make_pipeline(
+        #             ct1,
+        #             model
+        #         )
+        #         t_model = clone(rugby_pipeline).fit(home_features_ml, (home_df['Event'].isin(['T', 'TC'])).astype('int'))
+        #         c_model = clone(rugby_pipeline).fit(home_features_ml, (home_df['Event'].isin(['CT', 'CTC'])).astype('int'))
+
+        #         t_feature_names = t_model.named_steps['columntransformer'].get_feature_names_out()
+        #         c_feature_names = c_model.named_steps['columntransformer'].get_feature_names_out()
+                
+                
+        #         measure = ['Correlation', 'Feature Importance', 'Permutation Importance', 'Regression Analyses']
+        #         pill = st.selectbox('Pick a statistical technique',measure)
+        #         if pill == 'Correlation':
+        #             st.title('Correlation')
+        #             st.write(
+        #                 """
+        #                 Correlation analysis helps identify relationships between performance indicators and outcomes, highlighting which metrics tend to rise or fall together.
+                        
+        #                 """
+        #             )
+        #             positive_correlation_matrix = {}
+        #             negative_correlation_matrix = {}
+                    
+        #             for feature in home_features_corr.columns:
+        #                 columns = list(set(home_features_corr.columns) - {feature})
+        #                 for column in columns:
+        #                     x = home_features_corr[[feature, column]].corr().iloc[0, 1].item()
+                    
+        #                     if x > 0.7:
+        #                         if f'{column}_{feature}' not in positive_correlation_matrix.keys(): 
+        #                             positive_correlation_matrix[f'{feature}_{column}'] = x
+        #                     elif x < -0.7:
+        #                         if f'{column}_{feature}' not in negative_correlation_matrix.keys():
+        #                             negative_correlation_matrix[f'{feature}_{column}'] = x
+                
+        #             if positive_correlation_matrix:
+        #                 pcm_df = (
+        #                     pd.DataFrame.from_dict(
+        #                         positive_correlation_matrix, 
+        #                         orient='index', 
+        #                         columns=['Correlation']
+        #                     )
+        #                     .sort_values('Correlation', ascending=False)
+        #                 )
+                        
+        #                 st.subheader('Key Features Positively Associated with Points Scored.')
+        #                 st.write('Features that tended to increase as scoring increased.')
+        #                 st.table(pcm_df.index)
+        #             else:
+        #                 st.subheader('Key Features Positively Associated with Points Scored.')
+        #                 st.write('No features had a strong poitive correlation, meaning no features increased as scoring increased.')
+    
+        #             if negative_correlation_matrix:
+        #                 ncm_df = (
+        #                     pd.DataFrame.from_dict(
+        #                         negative_correlation_matrix, 
+        #                         orient='index', 
+        #                         columns=['Correlation']
+        #                     )
+        #                     .sort_values('Correlation')
+        #                 )
+                    
         
-            if pick_team == home_team:
-                range_columns=['Transition_Probability', 'Pass Accuracy','Tackle Completion', 'Lineout Success', 'Scrum Success']
-                arbitrary_columns=['Penalty For','Penalty Against', 'Knock-on', 'Forward', 'Turnover', 'Time', 'Carries', '22 Entries For', '22 Entries Against', 'Offensive Line Breaks', 'Defensive Line Breaks','Number of Straight Out Kicks', 'Number of Territorial Kicks','Game Time' , 'Score_Before']
-                from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, Normalizer, StandardScaler, RobustScaler
-                from sklearn.compose import ColumnTransformer
-                from sklearn.pipeline import Pipeline,make_pipeline
-                
-                from sklearn.ensemble import RandomForestClassifier
-                from sklearn.base import clone
-                
-                model = RandomForestClassifier(n_estimators=500, random_state=42)
-                range_processor = Pipeline(
-                                    steps=[('MInMax', MinMaxScaler())
-                                          ])
-                arbitrary_processor = Pipeline(
-                                    steps=[('robust', RobustScaler())
-                                          ])
-                ct1 = ColumnTransformer(
-                    [("Minmax", range_processor, range_columns),
-                     ('robust', arbitrary_processor, arbitrary_columns)],
-                        remainder="passthrough")
-                
-                rugby_pipeline = make_pipeline(
-                    ct1,
-                    model
-                )
-                t_model = clone(rugby_pipeline).fit(home_features_ml1, (home_df['Event'] == 'T').astype('int'))
-                c_model = clone(rugby_pipeline).fit(home_features_ml1, (home_df['Event'] == 'C').astype('int'))
+                    
+        #                 st.subheader('Key Features Negatively Associated with Points Scored')
+        #                 st.write('Features that tended to increase as scoring decreased')
+        #                 st.table(ncm_df)
+        #             else:
+        #                 st.subheader('Key Features Negatively Associated with Points Scored')
+        #                 st.write('No features had a strong negative correlation, meaning no features increased as scoring decreased.')
 
-                t_feature_names = t_model.named_steps['columntransformer'].get_feature_names_out()
-                c_feature_names = c_model.named_steps['columntransformer'].get_feature_names_out()
                 
-                #st.write(f'{t_model.named_steps}')
-                t_importances = pd.Series(
-                    t_model.named_steps['randomforestclassifier'].feature_importances_,
-                    index=t_feature_names
-                ).sort_values(ascending=False)
-                t_importances.index = t_importances.index.str.split('__').str[-1]
+        #         if pill == 'Feature Importance':
+                    
+        #             'Whcich columns caused the most uncertainity when removed'
+        #             t_importances = pd.Series(
+        #                 t_model.named_steps['randomforestclassifier'].feature_importances_,
+        #                 index=t_feature_names
+        #             ).sort_values(ascending=False)
+        #             t_importances.index = t_importances.index.str.split('__').str[-1]
+        #             c_importances = pd.Series(
+        #                 c_model.named_steps['randomforestclassifier'].feature_importances_,
+        #                 index=c_feature_names
+        #             ).sort_values(ascending=False)
+        #             c_importances.index = c_importances.index.str.split('__').str[-1]
+        #             st.title('Feature Importance')
+        #             st.header('Try scoring features')
+        #             st.subheader("Rank of features' importance in predicting a try score.")
+        #             st.table(t_importances)
+    
+        #             st.header('Try Conceding features')
+        #             st.subheader("Rank of features' importance in predicting a try concession.")
+        #             st.table(c_importances)
 
+        #         st.write()
+        #         st.write()
+        #         if pill == 'Permutation Importance':
+                    
+        #             st.title('Permutation imprtance')
+        #             concede_pi = permutation_importance(
+        #                     c_model,
+        #                     home_features_ml,
+        #                     (home_df['Event'].isin(['CT', 'CTC'])).astype('int'),
+        #                     n_repeats=30,
+        #                     random_state=42
+        #                 )
+        #             score_pi = permutation_importance(
+        #                     t_model,
+        #                     home_features_ml,
+        #                     (home_df['Event'].isin(['T', 'TC'])).astype('int'),
+        #                     n_repeats=30,
+        #                     random_state=42
+        #                 )
+    
+        #             conceding_df = pd.DataFrame({
+        #                 "feature": home_features_ml.columns,
+        #                 "mean_importance": concede_pi.importances_mean,
+        #                 "std_importance": concede_pi.importances_std
+        #             }).sort_values(by="mean_importance", ascending=False)
+                    
+        #             st.header("Try conceding features")
+        #             st.subheader("Rank of features' importace in predicting try concession.")
+        #             st.table(conceding_df)
+    
+    
+                    
+        #             scoring_df = pd.DataFrame({
+        #                 "feature": home_features_ml.columns,
+        #                 "mean_importance": score_pi.importances_mean,
+        #                 "std_importance": score_pi.importances_std
+        #             }).sort_values(by="mean_importance", ascending=False)
+                    
+        #             st.header("Try scoring features")
+        #             st.subheader("Rank of features' importace in predicting try scoring.")
+        #             st.table(scoring_df)
+            
+        #     if pick_team == team:
+        #         range_columns=['Transition_Probability', 'Pass Accuracy','Tackle Completion', 'Lineout Success', 'Scrum Success']
+        #         arbitrary_columns=['Penalty For','Penalty Against', 'Knock-on', 'Forward', 'Turnover', 'Time', 'Carries', '22 Entries For', '22 Entries Against', 'Offensive Line Breaks', 'Defensive Line Breaks','Number of Straight Out Kicks', 'Number of Territorial Kicks','Game Time' ]
+        #         from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, Normalizer, StandardScaler, RobustScaler
+        #         from sklearn.compose import ColumnTransformer
+        #         from sklearn.pipeline import Pipeline,make_pipeline
 
-                # st.header('Rank of feature importance to scoring a try.')
-                # st.table(t_importances.index.head(5))
-                c_importances = pd.Series(
-                    c_model.named_steps['randomforestclassifier'].feature_importances_,
-                    index=c_feature_names
-                ).sort_values(ascending=False)
-                c_importances.index = c_importances.index.str.split('__').str[-1]
-                # st.header('Rank of feature importance to conceding a try.')
-                # st.table(c_importances.index.head(5))
-                
-            if pick_team == team:
-                range_columns=['Transition_Probability', 'Pass Accuracy','Tackle Completion', 'Lineout Success', 'Scrum Success']
-                arbitrary_columns=['Penalty For','Penalty Against', 'Knock-on', 'Forward', 'Turnover', 'Time', 'Carries', '22 Entries For', '22 Entries Against', 'Offensive Line Breaks', 'Defensive Line Breaks','Number of Straight Out Kicks', 'Number of Territorial Kicks','Game Time' ]
-                from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, Normalizer, StandardScaler, RobustScaler
-                from sklearn.compose import ColumnTransformer
-                from sklearn.pipeline import Pipeline,make_pipeline
-                
-                from sklearn.ensemble import RandomForestClassifier
-                from sklearn.base import clone
-                from sklearn.inspection import permutation_importance
-                
-                model = RandomForestClassifier(n_estimators=500, random_state=42)
-                range_processor = Pipeline(
-                                    steps=[('MInMax', MinMaxScaler())
-                                          ])
-                arbitrary_processor = Pipeline(
-                                    steps=[('robust', RobustScaler())
-                                          ])
-                ct1 = ColumnTransformer(
-                    [("Minmax", range_processor, range_columns),
-                     ('robust', arbitrary_processor, arbitrary_columns)],
-                        remainder="passthrough")
-                
-                rugby_pipeline = make_pipeline(
-                    ct1,
-                    model
-                )
-                t_model = clone(rugby_pipeline).fit(opponent_features_ml1, (opponent_df['Event'] == 'T').astype('int'))
-                c_model = clone(rugby_pipeline).fit(opponent_features_ml1, (opponent_df['Event'] == 'C').astype('int'))
+        #         from sklearn.inspection import permutation_importance
+        #         from sklearn.base import clone
 
-                t_feature_names = t_model.named_steps['columntransformer'].get_feature_names_out()
-                c_feature_names = c_model.named_steps['columntransformer'].get_feature_names_out()
-                
-                # Feature Importance
-                t_importances = pd.Series(
-                    t_model.named_steps['randomforestclassifier'].feature_importances_,
-                    index=t_feature_names
-                ).sort_values(ascending=False)
-                t_importances.index = t_importances.index.str.split('__').str[-1]
-                c_importances = pd.Series(
-                    c_model.named_steps['randomforestclassifier'].feature_importances_,
-                    index=c_feature_names
-                ).sort_values(ascending=False)
-                c_importances.index = c_importances.index.str.split('__').str[-1]
-                # st.header('Rank of feature importance to scoring a try.')
-                # st.table(t_importances.head(5).index)
-                
-                # st.header('Rank of feature importance to conceding a try.')
-                # st.table(c_importances.head(5).index)
+        #         model = RandomForestClassifier(n_estimators=500, random_state=42)
+        #         range_processor = Pipeline(
+        #                             steps=[('MInMax', MinMaxScaler())
+        #                                   ])
+        #         arbitrary_processor = Pipeline(
+        #                             steps=[('robust', RobustScaler())
+        #                                   ])
+        #         ct1 = ColumnTransformer(
+        #             [("Minmax", range_processor, range_columns),
+        #              ('robust', arbitrary_processor, arbitrary_columns)],
+        #                 remainder="passthrough")
 
-                # Permutation importance
                 
+        #         rugby_pipeline = make_pipeline(
+        #             ct1,
+        #             model
+        #         )
+
+        #         preprocessor = rugby_pipeline.named_steps['columntransformer']
+        #         missing = set(preprocessor.feature_names_out()) - set(opponent_features_ml.columns)
+        #         extra = set(opponent_features_ml.columns) - set(preprocessor.feature_names_out())
+                
+        #         print("Missing columns:", missing)
+        #         print("Extra columns:", extra)
+               
+                
+        #         t_model = clone(rugby_pipeline).fit(opponent_features_ml, (opponent_df['Event'].isin(['T', 'TC'])).astype('int'))
+        #         c_model = clone(rugby_pipeline).fit(opponent_features_ml, (opponent_df['Event'].isin(['CT', 'CTC'])).astype('int'))
+
+        #         t_feature_names = t_model.named_steps['columntransformer'].get_feature_names_out()
+        #         c_feature_names = c_model.named_steps['columntransformer'].get_feature_names_out()
+                
+                
+        #         measure = ['Correlation', 'Feature Importance', 'Permutation Importance', 'Regression Analyses']
+        #         pill = st.selectbox('Pick a statistical technique',measure)
+        #         if pill == 'Correlation':
+        #             st.title('Correlation')
+        #             st.write('Helps identify relationships between performance indicators and outcomes, highlighting which metrics tend to rise or fall together')
+        #             positive_correlation_matrix = {}
+        #             negative_correlation_matrix = {}
+        #             columns = list(set(opponent_features_corr.columns) - {'Event_Impact'})
+        #             for column in columns:
+        #                 x = opponent_features_corr[['Event_Impact', column]].corr().iloc[0, 1].item()
+                
+        #                 if x > 0.7:
+        #                     positive_correlation_matrix[column] = x
+        #                 elif x < -0.7:
+        #                     negative_correlation_matrix[column] = x
+                
+        #             if positive_correlation_matrix:
+        #                 pcm_df = (
+        #                     pd.DataFrame.from_dict(
+        #                         positive_correlation_matrix, 
+        #                         orient='index', 
+        #                         columns=['Correlation']
+        #                     )
+        #                     .sort_values('Correlation', ascending=False)
+        #                 )
+                        
+        #                 st.subheader('Key Features Positively Associated with Points Scored.')
+        #                 st.write('Features that tended to increase as scoring increased.')
+        #                 st.table(pcm_df.index)
+        #             else:
+        #                 st.subheader('Key Features Positively Associated with Points Scored.')
+        #                 st.write('No features had a strong poitive correlation, meaning no features increased as scoring increased.')
+    
+        #             if negative_correlation_matrix:
+        #                 ncm_df = (
+        #                     pd.DataFrame.from_dict(
+        #                         negative_correlation_matrix, 
+        #                         orient='index', 
+        #                         columns=['Correlation']
+        #                     )
+        #                     .sort_values('Correlation')
+        #                 )
+                    
+        
+                    
+        #                 st.subheader('Key Features Negatively Associated with Points Scored')
+        #                 st.write('Features that tended to increase as scoring decreased')
+        #                 st.table(ncm_df)
+        #             else:
+        #                 st.subheader('Key Features Negatively Associated with Points Scored')
+        #                 st.write('No features had a strong negative correlation, meaning no features increased as scoring decreased.')
+
+                
+        #         if pill == 'Feature Importance':
+                    
+        #             'Whcich columns caused the most uncertainity when removed'
+        #             t_importances = pd.Series(
+        #                 t_model.named_steps['randomforestclassifier'].feature_importances_,
+        #                 index=t_feature_names
+        #             ).sort_values(ascending=False)
+        #             t_importances.index = t_importances.index.str.split('__').str[-1]
+        #             c_importances = pd.Series(
+        #                 c_model.named_steps['randomforestclassifier'].feature_importances_,
+        #                 index=c_feature_names
+        #             ).sort_values(ascending=False)
+        #             c_importances.index = c_importances.index.str.split('__').str[-1]
+        #             st.title('Feature Importance')
+        #             st.write('Feature Importance helps identify which performance metrics have the strongest influence on match outcomes or key performance indicators')
+        #             st.header('Try scoring features')
+        #             st.subheader("Rank of features' importance in predicting a try score.")
+        #             st.table(t_importances)
+    
+        #             st.header('Try Conceding features')
+        #             st.subheader("Rank of features' importance in predicting a try concession.")
+        #             st.table(c_importances)
+
+        #         st.write()
+        #         st.write()
+        #         if pill == 'Permutation Importance':
+                    
+        #             st.title('Permutation imprtance')
+        #             st.write(
+        #                 """
+        #             Permutation importance helps:
+
+        #                 - Confirm whether a stat is truly driving performance.
+                        
+        #                 - Identify stats that are just “passengers” (appear important but are causal)
+                        
+        #                 - Validate tactical KPIs before building strategy around them.
+        #             """
+        #             )
+        #             concede_pi = permutation_importance(
+        #                     c_model,
+        #                     opponent_features_ml,
+        #                     (opponent_df['Event'].isin(['CT', 'CTC' ])).astype('int'),
+        #                     n_repeats=30,
+        #                     random_state=42
+        #                 )
+        #             score_pi = permutation_importance(
+        #                     t_model,
+        #                     opponent_features_ml,
+        #                     (opponent_df['Event'].isin(['T', 'TC'])).astype('int'),
+        #                     n_repeats=30,
+        #                     random_state=42
+        #                 )
+    
+        #             conceding_df = pd.DataFrame({
+        #                 "feature": opponent_features_ml.columns,
+        #                 "mean_importance": concede_pi.importances_mean,
+        #                 "std_importance": concede_pi.importances_std
+        #             }).sort_values(by="mean_importance", ascending=False)
+                    
+        #             st.header("Try conceding features")
+        #             st.subheader("Rank of features' importace in predicting try concession.")
+        #             st.table(conceding_df)
+                    
+        #             scoring_df = pd.DataFrame({
+        #                 "feature": opponent_features_ml.columns,
+        #                 "mean_importance": score_pi.importances_mean,
+        #                 "std_importance": score_pi.importances_std
+        #             }).sort_values(by="mean_importance", ascending=False)
+                    
+        #             st.header("Try scoring features")
+        #             st.subheader("Rank of features' importace in predicting try scoring.")
+        #             st.table(scoring_df)
