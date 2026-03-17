@@ -57,7 +57,7 @@ matchdays = {
     # },
     'York' : {
         'away':{
-                 'file' :r"C:\Users\cex\Desktop\Rugby Streamlit\Middlesbrough vs York 10112024.xlsx",
+                 'file' :"Middlesbrough vs York 10112024.xlsx",
                  'date' : '11 October 2025'
                 },
         'home':{
@@ -67,7 +67,7 @@ matchdays = {
              },
     'Kendall' : {
         'home':{
-            'file' : r"C:\Users\cex\Desktop\Rugby Streamlit\Middlesbrough vs Kendall 20251018.xlsx",
+            'file' : "Middlesbrough vs Kendall 20251018.xlsx",
             'date' : '18 October 2025'},
         'away':{
             'file' : None,
@@ -86,7 +86,7 @@ matchdays = {
     # },
     'Alnwick' : {
         'away':{
-            'file' : r"C:\Users\cex\Desktop\Rugby Streamlit\Middlesbrough vs Alnwick 08112025.xlsx",
+            'file' : "Middlesbrough vs Alnwick 08112025.xlsx",
             'date' : '8 November 2025'
         },
         'home':{
