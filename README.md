@@ -71,6 +71,21 @@ Extracts numeric distance values from encoded kick/carry sequences.
 ### `get_time()`
 Converts raw seconds into `MM:SS` format.
 
+### `build_transition_matrix()`
+Creates a transitrion matrix based on complete concatenated carry metre sequence, 
+
+### `sequence_stats()`
+based on the transition matrix above, the function creates a dictionary for a carry metre sequence in the file, showing the values for mean transition probability, maximum transition probability, minimum transition probability and predictability of sequence
+
+### `mtp_interpretation()`
+Based on the mean transition probability above, the function tries to explain the value in rugby analyses language.
+
+### `surprisal_interpretation()`
+Based on predictability of sequence value above, the function tries to explain the value in rugby analyses language.
+
+### `combined_attack_interpretation()`
+Uses the mean transition probability and predictability of sequence to explain what the two values infer about the team performance.
+
 ---
 
 ## Dashboard Structure
