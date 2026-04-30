@@ -155,6 +155,4 @@ For each opponent:
 
 ## Future Improvements
 - Player-level analytics
-- Expected metres / expected tries
-- Machine learning predictions
 - Database-backed storage
