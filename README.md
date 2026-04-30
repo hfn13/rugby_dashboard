@@ -1,5 +1,8 @@
 # Rugby Matchday Statistics Dashboard (Detailed)
 
+#### Link to the streamlit app
+https://rugbydashboard-vjuughhr3ehtneuhvlnkqi.streamlit.app/
+
 ## Overview
 This project is a **Streamlit-based analytics dashboard** designed to analyse rugby match data collected in Excel spreadsheets.  
 It compares **Middlesbrough RFC** performance against multiple opponents across a season and provides:
